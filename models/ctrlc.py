@@ -261,67 +261,7 @@ class SetCriterion(nn.Module):
         
     
 
-    # def loss_vp1_labels(self, outputs, targets, indices,indices2, **kwargs):
-    #         # positive < thresh_pos < no label < thresh_neg < negative
-    #     src_logits = outputs['pred_vp1_logits'] # [bs, n, 1]        
-    #     # target_segs = torch.stack([t['straight_segs'] for t in targets], dim=0) # [bs, n, 3]
-    #     target_mask = torch.stack([t['line_mask'] for t in targets], dim=0) # [bs, n, 1]
-    #     target_vp1 = torch.stack([t['vp1'] for t in targets], dim=0) # [bs, 3]
-    #     target_vp1 = target_vp1.unsqueeze(1) # [bs, 1, 3]
-    #     class_zvp,_,_,mask_zvp,_,_ = self.line_label(outputs,targets)
-    #     with torch.no_grad():
 
-    #         target_classes = class_zvp
-
-    #         mask = target_mask*mask_zvp
-    #     loss_ce = F.binary_cross_entropy_with_logits(
-    #         src_logits, target_classes, reduction='none')
-    #     loss_ce = mask*loss_ce
-    #     loss_ce = loss_ce.sum(dim=1)/mask.sum(dim=1)
-        
-    #     losses = {'loss_vp1_ce': loss_ce.mean(),}
-    #     return losses
-    # def loss_vp2_labels(self, outputs, targets, indices,indices2, **kwargs):
-
-    #     src_logits2 = outputs["pred_vp2_logits"]  # [bs, n, 1]
-    #     src_logits3 = outputs["pred_vp3_logits"]
-    #     src_logits = torch.cat([src_logits2.unsqueeze(1),src_logits3.unsqueeze(1)],dim=1)
-        
-    #     # target_lines = torch.stack([t["straight_segs"] for t in targets], dim=0)
-    #     # target_lines = target_lines.unsqueeze(1).repeat(1,2,1,1)
-        
-    #     target_mask = torch.stack([t["line_mask"] for t in targets], dim=0)
-    #     target_mask = target_mask.unsqueeze(1).repeat(1,2,1,1)
-        
-    #     target_vp2 = torch.stack([t['vp2'] for t in targets], dim=0) # [bs, 3]
-    #     target_vp2 = target_vp2.unsqueeze(1) # [bs, 1, 3]
-        
-    #     target_vp3 = torch.stack([t['vp3'] for t in targets], dim=0) # [bs, 3]
-    #     target_vp3 = target_vp3.unsqueeze(1) # [bs, 1, 3] 
-        
-    #     target_vp = torch.cat([target_vp2.unsqueeze(1),target_vp3.unsqueeze(1)],dim=1)
-    #     _,class_hvp1,class_hvp2,_,mask_hvp1,mask_hvp2 = self.line_label(outputs,targets)
-    #     class_hvp = torch.cat([class_hvp1.unsqueeze(1),class_hvp2.unsqueeze(1)],dim=1)
-    #     mask_hvp = torch.cat([mask_hvp1.unsqueeze(1),mask_hvp2.unsqueeze(1)],dim=1)
-    #     src_idx = self._get_src_permutation_idx(indices2)
-    #     tgt_idx = self._get_tgt_permutation_idx(indices2)
-    #     with torch.no_grad():
-
-    #         target_classes = class_hvp[tgt_idx]
-
-    #         mask = target_mask[tgt_idx]*mask_hvp[tgt_idx]
-        
-
-    #     loss_ce = F.binary_cross_entropy_with_logits(
-    #         src_logits[src_idx], target_classes, reduction='none')
-    #     loss_ce = mask*loss_ce
-    #     loss_ce = loss_ce.sum(dim=1)/mask.sum(dim=1)
-        
-
-    #     losses = {
-    #         "loss_vp2_ce": loss_ce.mean(),
-    #     }
-    #     return losses
     
  
     def _get_src_permutation_idx(self, indices):
