@@ -56,7 +56,6 @@ class GPTran(nn.Module):
         """
         extra_info = {}
 
-        #import pdb; pdb.set_trace()
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
         features, pos = self.backbone(samples)
@@ -77,7 +76,6 @@ class GPTran(nn.Module):
                              tgt_key_padding_mask=lmask,
                              pos_embed=pos[-1]))#,line_embed = self.line_embed.weight))
         # ha [n_dec_layer, bs, num_query, ch]
-        import pdb; pdb.set_trace()
         extra_info['enc_attns'] = enc_attn
         extra_info['dec_self_attns'] = dec_self_attn
         extra_info['dec_cross_attns'] = dec_cross_attn
@@ -94,10 +92,6 @@ class GPTran(nn.Module):
         outputs_vp1_class = self.vp1_class_embed(hs[:,:,3:,:])
         outputs_vp2_class = self.vp2_class_embed(hs[:,:,3:,:])
         outputs_vp3_class = self.vp3_class_embed(hs[:,:,3:,:])
-
-        # import pdb; pdb.set_trace()
-
-
 
         out = {
             'pred_vp1': outputs_vp1[-1], 

@@ -63,7 +63,7 @@ class Transformer(nn.Module):
         mask = mask.flatten(1)
         
         memory, enc_attns = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
-        import pdb; pdb.set_trace()
+
         
         hs, dec_self_attns, dec_cross_attns = self.decoder(tgt, memory,
                                             tgt_key_padding_mask=tgt_key_padding_mask,
@@ -72,7 +72,6 @@ class Transformer(nn.Module):
                                             query_pos=query_pos)
         # enc_attn_weights [enc_ayer, bs, nhead, h*w, h*w]
         # dec_attn_weights [dec_ayer, bs, nhead, n_qeury, h*w]
-        # import pdb; pdb.set_trace()
 
         return (hs.transpose(1, 2), # hs [dec_ayer, bs, n, ch]
                 memory.permute(1, 2, 0).view(bs, c, h, w), 
@@ -105,7 +104,6 @@ class TransformerEncoder(nn.Module):
         for layer in self.layers:
             output, attn_weight = layer(output, src_mask=mask,
                            src_key_padding_mask=src_key_padding_mask, pos=pos)
-            import pdb; pdb.set_trace()
             attn_weights.append(attn_weight)
         attn_weights = torch.stack(attn_weights)
 
@@ -200,7 +198,6 @@ class TransformerEncoderLayer(nn.Module):
         src2 = self.linear2(self.dropout(self.activation(self.linear1(src))))
         src = src + self.dropout2(src2)
         src = self.norm2(src)
-        import pdb; pdb.set_trace()
         return src, attn_weight # post
 
     def forward_pre(self, src,
@@ -215,7 +212,6 @@ class TransformerEncoderLayer(nn.Module):
         src2 = self.norm2(src)
         src2 = self.linear2(self.dropout(self.activation(self.linear1(src2))))
         src = src + self.dropout2(src2)
-        import pdb; pdb.set_trace()
         return src, attn_weight # pre
 
     def forward(self, src,

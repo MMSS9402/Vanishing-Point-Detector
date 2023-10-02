@@ -387,8 +387,8 @@ def build_matterport(image_set, cfg):
     root = "/home/kmuvcl/source/CTRL-C/"
 
     PATHS = {
-        "train": "matterport_val_20230618_1.csv",
-        "val": "matterport_val_20230618_1.csv",
+        "train": "matterport_train_20230618.csv",
+        "val": "matterport_val_20230618.csv",
         "test": "matterport_test_20230618.csv",
     }
 

@@ -1,0 +1,765 @@
+wandb: Currently logged in as: mmss9402 (kookmin). Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.15.11 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.14.2
+wandb: Run data is saved locally in /home/kmuvcl/CTRL-C/wandb/run-20231002_195153-l1vxgsb0
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run quiet-waterfall-610
+wandb: ⭐️ View project at https://wandb.ai/kookmin/CTRL-C
+wandb: 🚀 View run at https://wandb.ai/kookmin/CTRL-C/runs/l1vxgsb0
+Not using distributed mode
+CHECKPOINT_PERIOD: 1
+DATASETS:
+  INPUT_HEIGHT: 480
+  INPUT_WIDTH: 640
+  MIN_LINE_LENGTH: 10
+  NUM_INPUT_LINES: 512
+  NUM_INPUT_VERT_LINE: 128
+  RETURN_VERT_LINES: False
+  VERT_LINE_ANGLE: 22.5
+DEVICE: cuda
+DISTRIBUTED: False
+DIST_URL: tcp://127.0.0.1:23456
+LOSS:
+  AUX_LOSS: True
+  LINE_NEG_ANGLE: 85.0
+  LINE_POS_ANGLE: 88.0
+  LOSSES: ['vp1', 'vp1_labels']
+  WEIGHTS:
+    loss_vp1: 1.0
+    loss_vp1_ce: 1.0
+MODELS:
+  BACKBONE: resnet50
+  DILATION: False
+  FROZEN_WEIGHT: None
+  MASKS: False
+  POSITION_EMBEDDING: sine
+  TRANSFORMER:
+    DEC_LAYERS: 6
+    DIM_FEEDFORWARD: 2048
+    DROPOUT: 0.1
+    ENC_LAYERS: 6
+    HIDDEN_DIM: 256
+    NHEADS: 8
+    NUM_QUERIES: 3
+    PRE_NORM: False
+  USE_STRUCTURE_TENSOR: True
+NUM_WORKERS: 12
+OUTPUT_DIR: debug
+RESUME: /home/kmuvcl/source/CTRL-C/logs/checkpoint0097.pth
+SEED: 42
+SOLVER:
+  BATCH_SIZE: 1
+  CLIP_MAX_NORM: 0.1
+  EPOCHS: 100
+  LR: 0.0001
+  LR_BACKBONE: 0.0001
+  LR_DROP: 20
+  WEIGHT_DECAY: 0.0001
+START_EPOCH: 0
+TEST:
+  DISPLAY: True
+VAL: False
+WORLD_SIZE: 1
+number of params: 41126156
+Start training
+({'vp1': tensor([-3.7253e-09,  9.8163e-01,  1.9081e-01]), 'vp2': tensor([ 0.8038,  0.1135, -0.5840]), 'vp3': tensor([ 0.5950, -0.1534,  0.7890]), 'vp': tensor([[[-3.7253e-09,  9.8163e-01,  1.9081e-01],
+         [ 8.0376e-01,  1.1352e-01, -5.8402e-01],
+         [ 5.9495e-01, -1.5336e-01,  7.8899e-01]]]), 'hvps': tensor([[-1.3763, -0.1944,  1.0000],
+        [ 0.7541, -0.1944,  1.0000]]), 'segs': tensor([[-0.2187, -0.2768, -0.1846, -0.2716],
+        [-0.0714, -0.3669,  0.0729, -0.4570],
+        [ 0.0912, -0.3848,  0.1003, -0.4600],
+        ...,
+        [ 0.0000,  0.0000,  0.0000,  0.0000],
+        [ 0.0000,  0.0000,  0.0000,  0.0000],
+        [ 0.0000,  0.0000,  0.0000,  0.0000]]), 'lines': tensor([[ 0.1483, -0.9610,  0.2336],
+        [-0.5001, -0.8008,  0.3296],
+        [-0.9917, -0.1210, -0.0438],
+        ...,
+        [ 0.0000,  0.0000,  0.0000],
+        [ 0.0000,  0.0000,  0.0000],
+        [ 0.0000,  0.0000,  0.0000]]), 'line_mask': tensor([[1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [1.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.],
+        [0.]]), 'horizon_lines1': tensor([-1.3763, -0.1944,  1.0000]), 'horizon_lines2': tensor([ 0.7541, -0.1944,  1.0000]), 'org_img': array([[[ 58,  56,  56],
+        [ 57,  55,  55],
+        [ 58,  56,  56],
+        ...,
+        [ 21,  40,  61],
+        [ 21,  39,  62],
+        [ 20,  38,  61]],
+
+       [[ 58,  56,  56],
+        [ 58,  56,  56],
+        [ 58,  56,  56],
+        ...,
+        [ 20,  39,  60],
+        [ 20,  38,  61],
+        [ 19,  37,  60]],
+
+       [[ 58,  56,  56],
+        [ 58,  56,  56],
+        [ 58,  56,  56],
+        ...,
+        [ 20,  39,  60],
+        [ 19,  37,  60],
+        [ 19,  37,  60]],
+
+       ...,
+
+       [[ 63,  76, 103],
+        [ 64,  78, 105],
+        [ 60,  75, 101],
+        ...,
+        [  0,   0,   0],
+        [  0,   0,   0],
+        [  0,   0,   0]],
+
+       [[ 61,  78, 103],
+        [ 61,  78, 103],
+        [ 57,  74, 100],
+        ...,
+        [  0,   0,   0],
+        [  0,   0,   0],
+        [  0,   0,   0]],
+
+       [[ 60,  76, 102],
+        [ 56,  73,  99],
+        [ 56,  73,  99],
+        ...,
+        [  0,   0,   0],
+        [  0,   0,   0],
+        [  0,   0,   0]]], dtype=uint8), 'org_sz': array([480, 640]), 'input_sz': array([480, 640]), 'img_path': '/home/kmuvcl/source/oldCuTi/CuTi/matterport/rgb/2azQ1b91cZZ/0_0_36.png', 'filename': 'rgb/2azQ1b91cZZ/0_0_36.png', 'num_segs': 392},)
+> /home/kmuvcl/CTRL-C/models/transformer.py(199)forward_post()
+-> src = src + self.dropout1(src2)
+(Pdb) Traceback (most recent call last):
+  File "/home/kmuvcl/CTRL-C/train.py", line 186, in <module>
+    main(cfg)
+  File "/home/kmuvcl/CTRL-C/train.py", line 133, in main
+    train_stats = train_one_epoch(
+  File "/home/kmuvcl/CTRL-C/engine.py", line 36, in train_one_epoch
+    outputs, extra_info = model(samples, extra_samples)
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/kmuvcl/CTRL-C/models/ctrlc.py", line 74, in forward
+    self.transformer(src=self.input_proj(src), mask=mask,
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/kmuvcl/CTRL-C/models/transformer.py", line 65, in forward
+    memory, enc_attns = self.encoder(src, src_key_padding_mask=mask, pos=pos_embed)
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/kmuvcl/CTRL-C/models/transformer.py", line 106, in forward
+    output, attn_weight = layer(output, src_mask=mask,
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/site-packages/torch/nn/modules/module.py", line 889, in _call_impl
+    result = self.forward(*input, **kwargs)
+  File "/home/kmuvcl/CTRL-C/models/transformer.py", line 228, in forward
+    return self.forward_post(src, src_mask, src_key_padding_mask, pos)
+  File "/home/kmuvcl/CTRL-C/models/transformer.py", line 199, in forward_post
+    src = src + self.dropout1(src2)
+  File "/home/kmuvcl/CTRL-C/models/transformer.py", line 199, in forward_post
+    src = src + self.dropout1(src2)
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/bdb.py", line 88, in trace_dispatch
+    return self.dispatch_line(frame)
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/bdb.py", line 112, in dispatch_line
+    self.user_line(frame)
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/pdb.py", line 262, in user_line
+    self.interaction(frame, None)
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/pdb.py", line 357, in interaction
+    self._cmdloop()
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/pdb.py", line 322, in _cmdloop
+    self.cmdloop()
+  File "/home/kmuvcl/anaconda3/envs/cuti/lib/python3.9/cmd.py", line 126, in cmdloop
+    line = input(self.prompt)
+OSError: [Errno 9] Bad file descriptor
+wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
+wandb: 🚀 View run quiet-waterfall-610 at: https://wandb.ai/kookmin/CTRL-C/runs/l1vxgsb0
+wandb: Synced 6 W&B file(s), 0 media file(s), 2 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20231002_195153-l1vxgsb0/logs
+wandb: Currently logged in as: mmss9402 (kookmin). Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.15.11 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.14.2
+wandb: Run data is saved locally in /home/kmuvcl/CTRL-C/wandb/run-20231002_195333-57gt7bs1
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run polished-violet-611
+wandb: ⭐️ View project at https://wandb.ai/kookmin/CTRL-C
+wandb: 🚀 View run at https://wandb.ai/kookmin/CTRL-C/runs/57gt7bs1
+Not using distributed mode
+CHECKPOINT_PERIOD: 1
+DATASETS:
+  INPUT_HEIGHT: 480
+  INPUT_WIDTH: 640
+  MIN_LINE_LENGTH: 10
+  NUM_INPUT_LINES: 512
+  NUM_INPUT_VERT_LINE: 128
+  RETURN_VERT_LINES: False
+  VERT_LINE_ANGLE: 22.5
+DEVICE: cuda
+DISTRIBUTED: False
+DIST_URL: tcp://127.0.0.1:23456
+LOSS:
+  AUX_LOSS: True
+  LINE_NEG_ANGLE: 85.0
+  LINE_POS_ANGLE: 88.0
+  LOSSES: ['vp1', 'vp1_labels']
+  WEIGHTS:
+    loss_vp1: 1.0
+    loss_vp1_ce: 1.0
+MODELS:
+  BACKBONE: resnet50
+  DILATION: False
+  FROZEN_WEIGHT: None
+  MASKS: False
+  POSITION_EMBEDDING: sine
+  TRANSFORMER:
+    DEC_LAYERS: 6
+    DIM_FEEDFORWARD: 2048
+    DROPOUT: 0.1
+    ENC_LAYERS: 6
+    HIDDEN_DIM: 256
+    NHEADS: 8
+    NUM_QUERIES: 3
+    PRE_NORM: False
+  USE_STRUCTURE_TENSOR: True
+NUM_WORKERS: 12
+OUTPUT_DIR: debug
+RESUME: /home/kmuvcl/source/CTRL-C/logs/checkpoint0097.pth
+SEED: 42
+SOLVER:
+  BATCH_SIZE: 18
+  CLIP_MAX_NORM: 0.1
+  EPOCHS: 100
+  LR: 0.0001
+  LR_BACKBONE: 0.0001
+  LR_DROP: 20
+  WEIGHT_DECAY: 0.0001
+START_EPOCH: 0
+TEST:
+  DISPLAY: True
+VAL: False
+WORLD_SIZE: 1
+number of params: 41126156
+Start training
+Traceback (most recent call last):
+  File "/home/kmuvcl/CTRL-C/train.py", line 186, in <module>
+    main(cfg)
+  File "/home/kmuvcl/CTRL-C/train.py", line 133, in main
+    train_stats = train_one_epoch(
+  File "/home/kmuvcl/CTRL-C/engine.py", line 30, in train_one_epoch
+    for samples, extra_samples, targets in metric_logger.log_every(data_loader, print_freq, header):
+  File "/home/kmuvcl/CTRL-C/util/misc.py", line 245, in log_every
+    header, total_time_str, total_time / len(iterable)))
+ZeroDivisionError: float division by zero
+wandb: Waiting for W&B process to finish... (failed 1). Press Control-C to abort syncing.
+wandb: 🚀 View run polished-violet-611 at: https://wandb.ai/kookmin/CTRL-C/runs/57gt7bs1
+wandb: Synced 6 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: ./wandb/run-20231002_195333-57gt7bs1/logs
