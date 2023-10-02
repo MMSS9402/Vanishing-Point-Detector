@@ -13,6 +13,7 @@ import cv2
 import json
 import csv
 import matplotlib.pyplot as plt
+from einops import rearrange
 
 from datasets import transforms as T
 
@@ -176,15 +177,13 @@ class GSVDataset(Dataset):
         self.return_vert_lines = cfg.DATASETS.RETURN_VERT_LINES
         self.return_masks = return_masks
         self.transform = transform
-        p_gray = 0.1
         self.augcolor = transforms.Compose(
             [
-                transforms.ToPILImage(),
+                transforms.ToTensor(),
                 transforms.ColorJitter(
                     brightness=0.25, contrast=0.25, saturation=0.25, hue=0.4 / 3.14
                 ),
-                transforms.RandomGrayscale(p=p_gray),
-                transforms.ToTensor(),
+                transforms.RandomGrayscale(p=0.1),
             ]
         )
 
@@ -214,18 +213,6 @@ class GSVDataset(Dataset):
                 self.list_vp2.append([np.float32(row[2]),np.float32(row[3]),np.float32(row[4])])
                 self.list_vp3.append([np.float32(row[8]),np.float32(row[9]),np.float32(row[10])])
                 
-
-    def color_transform(self, images):
-        """color jittering"""
-        ch, ht, wd = images.shape
-        images = self.augcolor(images[[2, 1, 0]] / 255.0)
-        return (
-            images[[2, 1, 0]]
-        )
-
-
-
-
     def __getitem__(self, idx):
         target = {}
         extra = {} 
@@ -237,7 +224,7 @@ class GSVDataset(Dataset):
 
         image = cv2.imread(img_filename)
         assert image is not None, print(img_filename)
-        image = image[:, :, ::-1]  # convert to rgb
+        # image = image[:, :, ::-1]  # convert to rgb
         org_image = image
         org_h, org_w = image.shape[0], image.shape[1]
         org_sz = np.array([org_h, org_w])
@@ -258,10 +245,10 @@ class GSVDataset(Dataset):
         num_segs = len(org_segs)
         assert num_segs > 10, print(line_filename, num_segs)
 
-        #         line_map = np.zeros((self.input_width, self.input_height, 1), dtype=np.float32)
-        #         for seg in org_segs:
-        #             seg = np.int32(np.array(seg) * [ratio_x, ratio_y, ratio_x, ratio_y])
-        #             line_map = cv2.line(line_map, (seg[0], seg[1]), (seg[2], seg[3]), 1.0, self.line_width)
+        # line_map = np.zeros((self.input_width, self.input_height, 1), dtype=np.float32)
+        # for seg in org_segs:
+        #   seg = np.int32(np.array(seg) * [ratio_x, ratio_y, ratio_x, ratio_y])
+        #   line_map = cv2.line(line_map, (seg[0], seg[1]), (seg[2], seg[3]), 1.0, self.line_width)
         org_segs = coordinate_yup(org_segs,org_h,org_w)
         segs = normalize_segs(org_segs, pp=pp, rho=rho)
 
@@ -299,12 +286,13 @@ class GSVDataset(Dataset):
         if self.return_masks:
             masks = create_masks(image)
 
-        image = np.ascontiguousarray(image) #[h,w,c]
-        image = torch.from_numpy(image).float()
-        image = image.permute(2,0,1)#[c,h,w]
+        image = np.ascontiguousarray(image).astype(np.float32) #[h,w,c]
+        # image = torch.from_numpy(image).float()
+        # image = rearrange(image, "h w c -> c h w")
+        image = image[:,:,::-1]
+        torch.manual_seed(0)
+        image = self.augcolor(image / 255.0)
         
-        image = self.color_transform(images=image)
-       
         target["vp1"] = (
             torch.from_numpy(np.ascontiguousarray(gt_vp1)).contiguous().float()
         )
@@ -371,7 +359,6 @@ class GSVDataset(Dataset):
         #     .float()
         # )
             
-
         if self.return_masks:
             target["masks"] = masks
         target["org_img"] = org_image
@@ -400,8 +387,8 @@ def build_matterport(image_set, cfg):
     root = "/home/kmuvcl/source/CTRL-C/"
 
     PATHS = {
-        "train": "matterport_train_20230618.csv",
-        "val": "matterport_val_20230618.csv",
+        "train": "matterport_val_20230618_1.csv",
+        "val": "matterport_val_20230618_1.csv",
         "test": "matterport_test_20230618.csv",
     }
 

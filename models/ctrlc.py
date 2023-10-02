@@ -77,7 +77,7 @@ class GPTran(nn.Module):
                              tgt_key_padding_mask=lmask,
                              pos_embed=pos[-1]))#,line_embed = self.line_embed.weight))
         # ha [n_dec_layer, bs, num_query, ch]
-
+        import pdb; pdb.set_trace()
         extra_info['enc_attns'] = enc_attn
         extra_info['dec_self_attns'] = dec_self_attn
         extra_info['dec_cross_attns'] = dec_cross_attn

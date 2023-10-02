@@ -24,7 +24,7 @@ def get_args_parser():
                         metavar="FILE",
                         help="path to config file",
                         type=str,
-                        default='/home/kmuvcl/source/CTRL-C/config-files/ctrl-c.yaml')
+                        default='/home/kmuvcl/CTRL-C/config-files/ctrl-c.yaml')
     parser.add_argument('--dataset', default='matterport')
     parser.add_argument("--opts",
                         help="Modify config options using the command-line",
@@ -99,13 +99,15 @@ def main(cfg):
     data_loader_train = DataLoader(dataset_train, 
                                    batch_sampler=batch_sampler_train,
                                    collate_fn=utils.collate_fn, 
-                                   num_workers=cfg.NUM_WORKERS)
+                                   num_workers=cfg.NUM_WORKERS,
+                                   shuffle=False)
     data_loader_val = DataLoader(dataset_val, 
                                  cfg.SOLVER.BATCH_SIZE, 
                                  sampler=sampler_val,
                                  drop_last=False, 
                                  collate_fn=utils.collate_fn, 
-                                 num_workers=cfg.NUM_WORKERS)
+                                 num_workers=cfg.NUM_WORKERS,
+                                 shuffle=False)
 
     if cfg.MODELS.FROZEN_WEIGHT is not None:
         checkpoint = torch.load(cfg.MODELS.FROZEN_WEIGHT, map_location='cpu')
