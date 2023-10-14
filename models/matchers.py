@@ -93,12 +93,12 @@ class HungarianMatcher(nn.Module):
         #print("VP_matcher",cost_vp1.shape)
         # print("cost",cost_vp1.shape)
         # Final cost matrix
+        
         C = torch.cat([torch.cat([cost_vp1.unsqueeze(1),cost_vp2.unsqueeze(1)],dim=1),cost_vp3.unsqueeze(1)],dim=1)
         # print('vp_matcher')
         # print(C)
         # print(C.shape)
         C = C.view(bs, num_queries, -1).cpu()
-        
         #print(bs,num_queries)
 
         sizes = 6

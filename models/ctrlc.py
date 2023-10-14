@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+from einops import rearrange
 
 from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
@@ -30,7 +31,7 @@ class GPTran(nn.Module):
         
         self.use_structure_tensor = use_structure_tensor
 
-        hidden_dim = transformer.d_model
+        hidden_dim = 256
         self.vp1_embed = nn.Linear(hidden_dim, 3)
         self.vp2_embed = nn.Linear(hidden_dim, 3)
         self.vp3_embed = nn.Linear(hidden_dim, 3)
@@ -55,31 +56,49 @@ class GPTran(nn.Module):
            - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels            
         """
         extra_info = {}
-
         if isinstance(samples, (list, torch.Tensor)):
             samples = nested_tensor_from_tensor_list(samples)
-        features, pos = self.backbone(samples)
+        # features, pos = self.backbone(samples)
 
-        src, mask = features[-1].decompose()
-        assert mask is not None
+        # src, mask = features[-1].decompose()
+        # assert mask is not None
         lines = extra_samples['lines']
-        lmask = ~extra_samples['line_mask'].squeeze(2).bool()
-        
+        lmask = None #~extra_samples['line_mask'].squeeze(2).bool()
+        desc = extra_samples['desc_sublines']
+
         # vlines [bs, n, 3]
         if self.use_structure_tensor:
             lines = self._to_structure_tensor(lines)
-                
-        hs, memory, enc_attn, dec_self_attn, dec_cross_attn = (
-            self.transformer(src=self.input_proj(src), mask=mask,
-                             query_embed=self.query_embed.weight,
-                             tgt=self.input_line_proj(lines), 
-                             tgt_key_padding_mask=lmask,
-                             pos_embed=pos[-1]))#,line_embed = self.line_embed.weight))
-        # ha [n_dec_layer, bs, num_query, ch]
-        extra_info['enc_attns'] = enc_attn
-        extra_info['dec_self_attns'] = dec_self_attn
-        extra_info['dec_cross_attns'] = dec_cross_attn
+        tgt = self.input_line_proj(lines)
 
+        bs = tgt.shape[0]
+        
+        desc = rearrange(desc,'b l p c -> (b l) c p').contiguous()
+        desc = F.max_pool1d(desc, kernel_size=21, stride=1)
+        desc = rearrange(desc, '(b l) c p -> b l p c',l=250,b=bs).contiguous().squeeze(2)
+        
+        tgt = tgt + desc
+        
+        query_embed=self.query_embed.weight
+        query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
+        tgt = tgt.permute(1, 0, 2)
+        query_pos = torch.cat([query_embed, torch.zeros_like(tgt)], dim=0)
+        tgt = torch.cat([torch.zeros_like(query_embed), tgt], dim=0)
+        
+        hs, enc_attn = self.transformer(src=tgt, src_key_padding_mask=None, pos=query_pos)
+        # hs, memory, enc_attn, dec_self_attn, dec_cross_attn = (
+        #     self.transformer(src=self.input_proj(src), mask=None,
+        #                      query_embed=self.query_embed.weight,
+        #                      tgt=self.input_line_proj(lines), 
+        #                      tgt_key_padding_mask=None,
+        #                      pos_embed=pos[-1]))#,line_embed = self.line_embed.weight))
+        # ha [n_dec_layer, bs, num_query, ch]
+
+        hs = rearrange(hs,'l b h -> b l h').contiguous().unsqueeze(0)
+
+        extra_info['enc_attns'] = enc_attn
+        # extra_info['dec_self_attns'] = dec_self_attn
+        # extra_info['dec_cross_attns'] = dec_cross_attn
         outputs_vp1 = self.vp1_embed(hs[:,:,0,:]) # [n_dec_layer, bs, 3]
         outputs_vp1 = F.normalize(outputs_vp1, p=2, dim=-1)
 
@@ -168,7 +187,7 @@ class SetCriterion(nn.Module):
     def line_label(self, outputs, targets):
         src_logits = outputs['pred_vp1_logits']
         target_lines = torch.stack([t['lines'] for t in targets], dim=0)
-        target_mask = torch.stack([t['line_mask'] for t in targets], dim=0)
+        # target_mask = torch.stack([t['line_mask'] for t in targets], dim=0)
         target_vp1 = torch.stack([t['vp1'] for t in targets], dim=0) # [bs, 3]
         target_vp2 = torch.stack([t['vp2'] for t in targets], dim=0) # [bs, 3]
         target_vp3 = torch.stack([t['vp3'] for t in targets], dim=0) # [bs, 3]
@@ -228,8 +247,8 @@ class SetCriterion(nn.Module):
         src_logits3 = outputs["pred_vp3_logits"]
         src_logits = torch.cat([src_logits1.unsqueeze(1),src_logits2.unsqueeze(1),src_logits3.unsqueeze(1)],dim=1)
 
-        target_mask = torch.stack([t["line_mask"] for t in targets], dim=0)
-        target_mask = target_mask.unsqueeze(1).repeat(1,3,1,1)
+        # target_mask = torch.stack([t["line_mask"] for t in targets], dim=0)
+        # target_mask = target_mask.unsqueeze(1).repeat(1,3,1,1)
         
         class_zvp,class_hvp1,class_hvp2,mask_zvp,mask_hvp1,mask_hvp2 = self.line_label(outputs,targets)
         class_vp = torch.cat([class_zvp.unsqueeze(1),class_hvp1.unsqueeze(1),class_hvp2.unsqueeze(1)],dim=1)
@@ -241,7 +260,7 @@ class SetCriterion(nn.Module):
 
             target_classes = class_vp[tgt_idx]
 
-            mask = target_mask[tgt_idx]*mask_vp[tgt_idx]
+            mask = mask_vp[tgt_idx]
         
         loss_ce = F.binary_cross_entropy_with_logits(
             src_logits[src_idx], target_classes, reduction='none')

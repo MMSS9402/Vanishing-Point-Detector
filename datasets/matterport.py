@@ -13,6 +13,7 @@ import cv2
 import json
 import csv
 import matplotlib.pyplot as plt
+import h5py
 from einops import rearrange
 
 from datasets import transforms as T
@@ -163,6 +164,10 @@ def compute_vp_similarity(lines,vp):
     
     return cos_sim
 
+def load_h5py_to_dict(file_path):
+        with h5py.File(file_path, 'r') as f:
+            return {key: torch.tensor(f[key][:]) for key in f.keys()}
+
 
 class GSVDataset(Dataset):
     def __init__(self, cfg, listpath, basepath, return_masks=False, transform=None):
@@ -212,6 +217,7 @@ class GSVDataset(Dataset):
                 self.list_vp1.append([np.float32(row[5]),np.float32(row[6]),np.float32(row[7])])
                 self.list_vp2.append([np.float32(row[2]),np.float32(row[3]),np.float32(row[4])])
                 self.list_vp3.append([np.float32(row[8]),np.float32(row[9]),np.float32(row[10])])
+    
                 
     def __getitem__(self, idx):
         target = {}
@@ -221,6 +227,10 @@ class GSVDataset(Dataset):
         # read image and preprocess
         img_filename = self.list_img_filename[idx]
         line_filename = self.list_line_filename[idx]
+        
+        h5py_file = (load_h5py_to_dict(img_filename.replace(".png", "_sp_line.h5py",)))
+        
+        desc_sublines = h5py_file['desc_sublines'][0].float()
 
         image = cv2.imread(img_filename)
         assert image is not None, print(img_filename)
@@ -239,23 +249,17 @@ class GSVDataset(Dataset):
         rho = 2.0 / np.minimum(org_w, org_h)
         
         # read line and preprocess
-        org_segs = read_line_file(line_filename, self.min_line_length)
-        # print("org_segs",org_segs)
-        #print('filename',filename)
-        num_segs = len(org_segs)
+        sublines = h5py_file['sublines'][0].float()
+        num_segs = sublines.shape[0]
+        org_segs = np.copy(sublines.reshape(num_segs,-1).numpy())
+        # num_segs = len(org_segs)
         assert num_segs > 10, print(line_filename, num_segs)
 
-        # line_map = np.zeros((self.input_width, self.input_height, 1), dtype=np.float32)
-        # for seg in org_segs:
-        #   seg = np.int32(np.array(seg) * [ratio_x, ratio_y, ratio_x, ratio_y])
-        #   line_map = cv2.line(line_map, (seg[0], seg[1]), (seg[2], seg[3]), 1.0, self.line_width)
         org_segs = coordinate_yup(org_segs,org_h,org_w)
         segs = normalize_segs(org_segs, pp=pp, rho=rho)
 
-        sampled_segs, line_mask = sample_segs_np(segs, self.num_input_lines)
-        straight_segs = None#straight_line(sampled_segs)
-        # non_sampled_segs, non_line_mask = segs_np(segs, self.num_input_lines)
-        sampled_lines = segs2lines_np(sampled_segs)
+        # sampled_segs, line_mask = sample_segs_np(segs, self.num_input_lines)
+        sampled_lines = segs2lines_np(segs)
 
         non_sampled_lines = None
         # vertical directional segs 
@@ -263,10 +267,10 @@ class GSVDataset(Dataset):
         if len(vert_segs) < 2:
             vert_segs = segs
 
-        sampled_vert_segs, vert_line_mask = sample_segs_np(
-            vert_segs, self.num_input_vert_lines
-        )
-        sampled_vert_lines = segs2lines_np(sampled_vert_segs)
+        # sampled_vert_segs, vert_line_mask = sample_segs_np(
+        #     vert_segs, self.num_input_vert_lines
+        # )
+        # sampled_vert_lines = segs2lines_np(sampled_vert_segs)
         
 
 
@@ -290,9 +294,11 @@ class GSVDataset(Dataset):
         # image = torch.from_numpy(image).float()
         # image = rearrange(image, "h w c -> c h w")
         image = image[:,:,::-1]
-        torch.manual_seed(0)
         image = self.augcolor(image / 255.0)
-        
+
+        image = torch.randn(image.shape)
+
+
         target["vp1"] = (
             torch.from_numpy(np.ascontiguousarray(gt_vp1)).contiguous().float()
         )
@@ -328,7 +334,7 @@ class GSVDataset(Dataset):
             )
         else:
             target["segs"] = (
-                torch.from_numpy(np.ascontiguousarray(sampled_segs))
+                torch.from_numpy(np.ascontiguousarray(segs))
                 .contiguous()
                 .float()
             )
@@ -337,9 +343,9 @@ class GSVDataset(Dataset):
                 .contiguous()
                 .float()
             )
-            target["line_mask"] = (
-                torch.from_numpy(np.ascontiguousarray(line_mask)).contiguous().float()
-            )
+            # target["line_mask"] = None#(
+            # #     torch.from_numpy(np.ascontiguousarray(line_mask)).contiguous().float()
+            # # )
             
             target["horizon_lines1"] = (
             torch.from_numpy(np.ascontiguousarray(gt_horizon_lines1))
@@ -367,9 +373,11 @@ class GSVDataset(Dataset):
         target["img_path"] = img_filename
         target["filename"] = filename
         target["num_segs"] = num_segs
+        target['desc_sublines'] = desc_sublines
 
         extra["lines"] = target["lines"].clone()
-        extra["line_mask"] = target["line_mask"].clone()
+        extra['desc_sublines'] = target['desc_sublines'].clone()
+        # extra["line_mask"] = None #target["line_mask"].clone()
 
         return image, extra, target
 

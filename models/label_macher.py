@@ -20,7 +20,7 @@ class HungarianMatcher(nn.Module):
     def line_label(self, outputs, targets):
         src_logits = outputs['pred_vp1_logits']
         target_lines = torch.stack([t['lines'] for t in targets], dim=0)
-        target_mask = torch.stack([t['line_mask'] for t in targets], dim=0)
+        # target_mask = torch.stack([t['line_mask'] for t in targets], dim=0)
         target_vp1 = torch.stack([t['vp1'] for t in targets], dim=0) # [bs, 3]
         target_vp2 = torch.stack([t['vp2'] for t in targets], dim=0) # [bs, 3]
         target_vp3 = torch.stack([t['vp3'] for t in targets], dim=0) # [bs, 3]
@@ -76,7 +76,7 @@ class HungarianMatcher(nn.Module):
         # positive < thresh_pos < no label < thresh_neg < negative
         src_logits = pred_weight
         target_lines = torch.stack([t['lines'] for t in targets], dim=0) # [bs, n, 3]
-        target_mask = torch.stack([t['line_mask'] for t in targets], dim=0) # [bs, n, 1]
+        # target_mask = torch.stack([t['line_mask'] for t in targets], dim=0) # [bs, n, 1]
         target_vp2 = torch.stack([t['vp2'] for t in targets], dim=0) # [bs, 3]
         target_vp2 = target_vp2.unsqueeze(1) # [bs, 1, 3]
         target_vp3 = torch.stack([t['vp3'] for t in targets], dim=0) # [bs, 3]
@@ -91,8 +91,8 @@ class HungarianMatcher(nn.Module):
             
             
             # [bs, n, 1]            
-            mask1 = target_mask*mask_hvp1
-            mask2 = target_mask*mask_hvp2
+            mask1 = mask_hvp1
+            mask2 = mask_hvp2
             
         loss_ce1 = F.binary_cross_entropy_with_logits(
             src_logits, target_classes1, reduction='none')

@@ -203,7 +203,7 @@ def line_label( pred_v1weight,target_vp1,target_vp2,target_vp3,target_lines,targ
     src_logits = torch.tensor(pred_v1weight)
     src_logits = src_logits.unsqueeze(-1)
     target_lines = torch.tensor(target_lines)
-    target_mask =torch.tensor(target_mask)
+    # target_mask =torch.tensor(target_mask)
     target_vp1 = target_vp1 # [bs, 3]
     target_vp2 = target_vp2 # [bs, 3]
     target_vp3 = target_vp3 # [bs, 3]
@@ -291,7 +291,7 @@ def line_label( pred_v1weight,target_vp1,target_vp2,target_vp3,target_lines,targ
 def loss_vp_line(pred_v1weight,target_vp1,target_lines,target_mask):
     src_logits = torch.tensor(pred_v1weight)      
     target_lines = torch.tensor(target_lines)  
-    target_mask = torch.tensor(target_mask)  
+    # target_mask = torch.tensor(target_mask)  
     target_zvp = torch.tensor(target_vp1)  # [bs, 3]
     target_zvp = target_zvp.unsqueeze(0) # [bs, 1, 3]
     thresh_line_pos = np.cos(np.radians(88.0), dtype=np.float32)
@@ -310,8 +310,8 @@ def loss_vp_line(pred_v1weight,target_vp1,target_lines,target_mask):
         # mask = torch.where(torch.gt(cos_sim, thresh_line_pos) &
         #                     torch.lt(cos_sim, thresh_line_neg),  
         #                     zeros, ones)    
-        mask = target_mask#*mask
-        mask = mask*target_classes
+        # mask = target_mask#*mask
+        mask = target_classes
 
     return mask.float() 
 
@@ -333,7 +333,7 @@ def main(cfg):
     
     output_dir = Path(cfg.OUTPUT_DIR)
     
-    checkpoint = torch.load('/home/kmuvcl/source/CTRL-C/loco/checkpoint0071.pth', map_location='cpu')
+    checkpoint = torch.load('/home/kmuvcl/CTRL-C/desc+structure/checkpoint0052.pth', map_location='cpu')
     model.load_state_dict(checkpoint['model'])
     model = model.eval()
     
@@ -412,7 +412,7 @@ def main(cfg):
             
             target_segs = targets[0]['segs'].numpy()
             target_lines = targets[0]['lines'].numpy()
-            target_mask = targets[0]['line_mask'].numpy()
+            # target_mask = targets[0]['line_mask'].numpy()
             # target_straight_seg = targets[0]['straight_segs'].numpy()
             num_segs = len(target_segs)
 
@@ -430,15 +430,15 @@ def main(cfg):
             # mask_hvp2, target_class_hvp2 = loss_vp1_labels(pred_v3weight,target_vp3,target_straight_seg,target_mask)
             # mask_hvp2 = mask_hvp2.float() * target_class_hvp2
 
-            class_zvp,class_hvp1,class_hvp2,mask_zvp,mask_hvp1,mask_hvp2 = line_label(pred_v1weight,target_vp1,target_vp2,target_vp3,target_lines,target_mask)
+            class_zvp,class_hvp1,class_hvp2,mask_zvp,mask_hvp1,mask_hvp2 = line_label(pred_v1weight,target_vp1,target_vp2,target_vp3,target_lines,None)
             class_zvp = class_zvp*mask_zvp
             class_hvp1 = class_hvp1*mask_hvp1
             class_hvp2 = class_hvp2*mask_hvp2
         
             
-            line_mask_zvp = loss_vp_line(pred_v1weight,target_vp1,target_lines,target_mask)
-            line_mask_hvp1 = loss_vp_line(pred_v2weight,target_vp2,target_lines,target_mask)
-            line_mask_hvp2 = loss_vp_line(pred_v3weight,target_vp3,target_lines,target_mask)
+            line_mask_zvp = loss_vp_line(pred_v1weight,target_vp1,target_lines,None)
+            line_mask_hvp1 = loss_vp_line(pred_v2weight,target_vp2,target_lines,None)
+            line_mask_hvp2 = loss_vp_line(pred_v3weight,target_vp3,target_lines,None)
 
             # x1 = torch.dot(target_vp3,target_vp2)
             # print("dot",x1)
@@ -568,45 +568,45 @@ def main(cfg):
                 # )
 
                 
-                # v1w = pred_v1weight
-                # v2w = pred_v2weight
-                # v3w = pred_v3weight
-                # plt.figure(figsize=(4,3))
-                # #                 plt.title('zenith vp lines')
-                # plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
-                # for i in range(num_segs):
-                #     if v1w[i] > 0.8:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="r",
-                #             alpha=1.0,
-                #         )
-                # for i in range(num_segs):
-                #     if v2w[i] > 0.7:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="g",
-                #             alpha=1.0,
-                #         )   
-                # for i in range(num_segs):
-                #     if v3w[i] > 0.7:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="b",
-                #             alpha=1.0   ,
-                #         )
-                # plt.xlim(-320/517.97,320/517.97)
-                # plt.ylim(-240/517.97,240/517.97)
-                # #plt.axis("off")
-                # plt.savefig(
-                #     osp.join(fig_output_dir, filename + "pred_lines_class.jpg"),
-                #     pad_inches=0,
-                #     bbox_inches="tight",
-                # )
-                # plt.close("all")
+                v1w = pred_v1weight
+                v2w = pred_v2weight
+                v3w = pred_v3weight
+                plt.figure(figsize=(4,3))
+                #                 plt.title('zenith vp lines')
+                plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
+                for i in range(num_segs):
+                    if v1w[i] > 0.8:
+                        plt.plot(
+                            (segs[i, 0], segs[i, 2]),
+                            (segs[i, 1], segs[i, 3]),
+                            c="r",
+                            alpha=1.0,
+                        )
+                for i in range(num_segs):
+                    if v2w[i] > 0.7:
+                        plt.plot(
+                            (segs[i, 0], segs[i, 2]),
+                            (segs[i, 1], segs[i, 3]),
+                            c="g",
+                            alpha=1.0,
+                        )   
+                for i in range(num_segs):
+                    if v3w[i] > 0.7:
+                        plt.plot(
+                            (segs[i, 0], segs[i, 2]),
+                            (segs[i, 1], segs[i, 3]),
+                            c="b",
+                            alpha=1.0   ,
+                        )
+                plt.xlim(-320/517.97,320/517.97)
+                plt.ylim(-240/517.97,240/517.97)
+                #plt.axis("off")
+                plt.savefig(
+                    osp.join(fig_output_dir, filename + "pred_lines_class.jpg"),
+                    pad_inches=0,
+                    bbox_inches="tight",
+                )
+                plt.close("all")
 
                 # plt.figure(figsize=(4,3))
                 # #                 plt.title('zenith vp lines')
