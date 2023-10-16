@@ -73,11 +73,11 @@ class GPTran(nn.Module):
 
         bs = tgt.shape[0]
         
-        desc = rearrange(desc,'b l p c -> (b l) c p').contiguous()
-        desc = F.max_pool1d(desc, kernel_size=21, stride=1)
-        desc = rearrange(desc, '(b l) c p -> b l p c',l=250,b=bs).contiguous().squeeze(2)
+        # desc = rearrange(desc,'b l p c -> (b l) c p').contiguous()
+        # desc = F.max_pool1d(desc, kernel_size=21, stride=1)
+        # desc = rearrange(desc, '(b l) c p -> b l p c',l=250,b=bs).contiguous().squeeze(2)
         
-        tgt = tgt + desc
+        # tgt = tgt + desc
         
         query_embed=self.query_embed.weight
         query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)

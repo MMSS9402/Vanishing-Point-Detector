@@ -52,7 +52,7 @@ CHECKPOINT_PERIOD: 1
 OUTPUT_DIR: "logs"
 DEVICE: 'cuda'
 SEED: 42
-RESUME: ''
+RESUME: '/home/kmuvcl/CTRL-C/transformer_encoder/checkpoint0036.pth'
 START_EPOCH: 0
 VAL: False
 NUM_WORKERS: 12

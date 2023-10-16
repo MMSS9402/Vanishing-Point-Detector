@@ -71,6 +71,7 @@ class HungarianMatcher(nn.Module):
         # print(pred_vp1.shape)
         
         # Also concat the target labels and boxes
+
         tgt_vp1 = torch.cat([v["vp1"] for v in targets])
         tgt_vp2 = torch.cat([v["vp2"] for v in targets])
         tgt_vp3 = torch.cat([v["vp3"] for v in targets])
@@ -84,7 +85,6 @@ class HungarianMatcher(nn.Module):
         
         #print("pred_vp.shape:",pred_vp.shape)
         #print("tgt_vp.shape",tgt_vp.shape)
-
 
         # Compute the L1 cost between boxes
         cost_vp1 = self.loss_vp(pred_vp1.unsqueeze(1),tgt_vp)

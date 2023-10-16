@@ -26,6 +26,7 @@ import util.misc as utils
 from datasets import build_matterport_dataset
 from models import build_model
 from config import cfg
+from models.matchers import build_matcher
 
 cmap = plt.get_cmap("jet")
 norm = mpl.colors.Normalize(vmin=0.0, vmax=1.0)
@@ -155,55 +156,12 @@ def to_device(data, device):
         return {k: v.to(device) for k, v in data.items()}
     return [{k: v.to(device) if isinstance(v, torch.Tensor) else v
              for k, v in t.items()} for t in data] 
-    
-    # def line_label(self, outputs, targets):
-    #     target_segs = torch.stack([t['straight_segs'] for t in targets], dim=0)
-    #     target_line_mask = torch.stack([t['line_mask'] for t in targets], dim=0)
-    #     target_vp1 = torch.stack([t['vp1'] for t in targets], dim=0) # [bs, 3]
-    #     target_vp1 = target_vp1[:,:2]
-    #     target_vp2 = torch.stack([t['vp2'] for t in targets], dim=0) # [bs, 3]
-    #     target_vp2 = target_vp2[:,:2]
-    #     target_vp3 = torch.stack([t['vp3'] for t in targets], dim=0) # [bs, 3]
-    #     target_vp3 = target_vp3[:,:2]
-
-    #     target_vp1 = target_vp1.unsqueeze(1)
-    #     target_vp2 = target_vp2.unsqueeze(1)
-    #     target_vp3 = target_vp3.unsqueeze(1)
-    #     t = 0.99
-    #     with torch.no_grad():
-
-    #         cos_sim_zvp = F.cosine_similarity(target_segs, target_vp1, dim=-1).abs()
-    #         cos_sim_hvp1 = F.cosine_similarity(target_segs, target_vp2, dim=-1).abs()
-    #         cos_sim_hvp2 = F.cosine_similarity(target_segs, target_vp3, dim=-1).abs()
-
-    #         mask_class_1 = cos_sim_zvp > t
-    #         mask_class_2 = cos_sim_hvp1 > t
-    #         mask_class_3 = cos_sim_hvp2 > t
-            
-    #         cos_sim = torch.where(mask_class_1, 1, 0) + torch.where(mask_class_2, 2, 0) + torch.where(mask_class_3, 3, 0)
-
-    #         overlaps = cos_sim >= 4
-            
-    #         if overlaps.any():
-    #             values, indices = torch.stack([cos_sim_zvp, cos_sim_hvp1, cos_sim_hvp2], dim=-1)[overlaps].max(dim=-1)
-            
-    #             cos_sim[overlaps] = indices + 1
-
-    #         mask_class_1 = cos_sim == 1
-    #         mask_class_2 = cos_sim == 2
-    #         mask_class_3 = cos_sim == 3
-            
-    #         mask_class_1 = mask_class_1.float()
-    #         mask_class_2 = mask_class_2.float()
-    #         mask_class_3 = mask_class_3.float()
-
-    #     return mask_class_1.unsqueeze(-1), mask_class_2.unsqueeze(-1),mask_class_3.unsqueeze(-1)
 
 def line_label( pred_v1weight,target_vp1,target_vp2,target_vp3,target_lines,target_mask):
     src_logits = torch.tensor(pred_v1weight)
     src_logits = src_logits.unsqueeze(-1)
     target_lines = torch.tensor(target_lines)
-    target_mask =torch.tensor(target_mask)
+    # target_mask =torch.tensor(target_mask)
     target_vp1 = target_vp1 # [bs, 3]
     target_vp2 = target_vp2 # [bs, 3]
     target_vp3 = target_vp3 # [bs, 3]
@@ -258,40 +216,10 @@ def line_label( pred_v1weight,target_vp1,target_vp2,target_vp3,target_lines,targ
 
     return cos_class_1, cos_class_2,cos_class_3,mask_zvp,mask_hvp1,mask_hvp2
 
-# def loss_vp1_labels(pred_v1weight,target_vp1,target_lines,target_mask):
-#         # positive < thresh_pos < no label < thresh_neg < negative
-#         src_logits = torch.tensor(pred_v1weight)       
-#         target_lines = torch.tensor(target_lines) # [bs, n, 3]
-#         target_mask = torch.tensor(target_mask) # [bs, n, 1]
-
-
-#         target_vp1 = target_vp1 # [bs, 3]
-#         target_vp1 = target_vp1[:2]
-#         target_vp1 = target_vp1.unsqueeze(0) # [bs, 1, 3]
-
-#         with torch.no_grad():
-#             thresh_line_pos = np.cos(np.radians(85.0), dtype=np.float32)
-#             thresh_line_neg = np.cos(np.radians(85.0), dtype=np.float32)
-#             cos_sim = F.cosine_similarity(target_lines, target_vp1, dim=-1).abs()
-#             # [bs, n]
-
-#             cos_sim = cos_sim.unsqueeze(-1) # [bs, n, 1]
-#             src_logits = src_logits.unsqueeze(-1)
-#             ones = torch.ones_like(src_logits)
-#             zeros = torch.zeros_like(src_logits)
-#             target_classes = torch.where(cos_sim > 0.99, ones, zeros)
-#             # mask = torch.where(torch.gt(cos_sim, thresh_line_pos) &
-#             #                    torch.lt(cos_sim, thresh_line_neg), 
-#             #                    zeros, ones) 
-
-#             mask = target_mask
-
-#         return mask,target_classes 
-
 def loss_vp_line(pred_v1weight,target_vp1,target_lines,target_mask):
     src_logits = torch.tensor(pred_v1weight)      
     target_lines = torch.tensor(target_lines)  
-    target_mask = torch.tensor(target_mask)  
+    # target_mask = torch.tensor(target_mask)  
     target_zvp = torch.tensor(target_vp1)  # [bs, 3]
     target_zvp = target_zvp.unsqueeze(0) # [bs, 1, 3]
     thresh_line_pos = np.cos(np.radians(88.0), dtype=np.float32)
@@ -310,8 +238,8 @@ def loss_vp_line(pred_v1weight,target_vp1,target_lines,target_mask):
         # mask = torch.where(torch.gt(cos_sim, thresh_line_pos) &
         #                     torch.lt(cos_sim, thresh_line_neg),  
         #                     zeros, ones)    
-        mask = target_mask#*mask
-        mask = mask*target_classes
+        # mask = target_mask#*mask
+        mask = target_classes
 
     return mask.float() 
 
@@ -330,6 +258,119 @@ def calculate_accuracy(y_true, y_pred):
     
     return accuracy*100
 
+def _get_src_permutation_idx(indices):
+    # permute predictions following indices
+    batch_idx = torch.cat([torch.full_like(src, i) for i, (src, _) in enumerate(indices)])
+    src_idx = torch.cat([src for (src, _) in indices])
+    return batch_idx, src_idx
+
+def _get_tgt_permutation_idx(indices):
+    # permute targets following indices
+    batch_idx = torch.cat([torch.full_like(tgt, i) for i, (_, tgt) in enumerate(indices)])
+    tgt_idx = torch.cat([tgt for (_, tgt) in indices])
+    return batch_idx, tgt_idx
+
+def loss_vp1(outputs, targets,indices, **kwargs):
+    #print(outputs.keys())
+    assert 'pred_vp1' in outputs
+    assert 'pred_vp2' in outputs
+    assert 'pred_vp3' in outputs
+    pred_vp1 = outputs['pred_vp1']
+    pred_vp2 = outputs['pred_vp2']
+    pred_vp3 = outputs['pred_vp3']
+    pred_vp = torch.cat([torch.cat([pred_vp1.unsqueeze(1),pred_vp2.unsqueeze(1)],dim=1),pred_vp3.unsqueeze(1)],dim=1)
+    tgt_vp = torch.cat([v["vp"] for v in targets])
+    src_idx = _get_src_permutation_idx(indices)
+    tgt_idx = _get_tgt_permutation_idx(indices)
+    cos_sim = F.cosine_similarity(pred_vp[src_idx], tgt_vp[tgt_idx], dim=-1).abs()    
+    loss_vp1_cos = (1.0 - cos_sim).mean()
+    return loss_vp1_cos 
+
+def line_label(outputs, targets):
+    src_logits = outputs['pred_vp1_logits']
+    target_lines = torch.stack([t['lines'] for t in targets], dim=0)
+    # target_mask = torch.stack([t['line_mask'] for t in targets], dim=0)
+    target_vp1 = torch.stack([t['vp1'] for t in targets], dim=0) # [bs, 3]
+    target_vp2 = torch.stack([t['vp2'] for t in targets], dim=0) # [bs, 3]
+    target_vp3 = torch.stack([t['vp3'] for t in targets], dim=0) # [bs, 3]
+
+    target_vp1 = target_vp1.unsqueeze(1)
+    target_vp2 = target_vp2.unsqueeze(1)
+    target_vp3 = target_vp3.unsqueeze(1)
+
+    with torch.no_grad():
+        
+        cos_sim_zvp = F.cosine_similarity(target_lines, target_vp1, dim=-1).abs()
+        cos_sim_hvp1 = F.cosine_similarity(target_lines, target_vp2, dim=-1).abs()
+        cos_sim_hvp2 = F.cosine_similarity(target_lines, target_vp3, dim=-1).abs()
+        cos_sim_zvp = cos_sim_zvp.unsqueeze(-1)
+        cos_sim_hvp1 = cos_sim_hvp1.unsqueeze(-1)
+        cos_sim_hvp2 = cos_sim_hvp2.unsqueeze(-1)
+        thresh_line_pos = np.cos(np.radians(88.0), dtype=np.float32)
+        thresh_line_neg = np.cos(np.radians(85.0), dtype=np.float32)
+        
+        ones = torch.ones_like(src_logits)
+        zeros = torch.zeros_like(src_logits)
+
+        cos_class_1 = torch.where(cos_sim_zvp < thresh_line_pos, ones, zeros)
+        cos_class_2 = torch.where(cos_sim_hvp1 < thresh_line_pos, ones, zeros)
+        cos_class_3 = torch.where(cos_sim_hvp2 < thresh_line_pos, ones, zeros)
+        
+        mask_zvp = torch.where(torch.gt(cos_class_1, thresh_line_pos) &
+                        torch.lt(cos_class_1, thresh_line_neg),  
+                        zeros, ones)
+        mask_hvp1 = torch.where(torch.gt(cos_class_2, thresh_line_pos) &
+                        torch.lt(cos_class_2, thresh_line_neg),  
+                        zeros, ones)
+        mask_hvp2 = torch.where(torch.gt(cos_class_3, thresh_line_pos) &
+                        torch.lt(cos_class_3, thresh_line_neg),  
+                        zeros, ones)
+        cos_sim = torch.where(cos_class_1==1, 1, 0) + torch.where(cos_class_2==1, 2, 0) + torch.where(cos_class_3==1, 3, 0)
+
+        overlaps = cos_sim >= 4
+        
+        if overlaps.any():
+            values, indices = torch.stack([cos_sim_zvp, cos_sim_hvp1, cos_sim_hvp2], dim=-1)[overlaps].min(dim=-1)
+        
+            cos_sim[overlaps] = indices + 1
+
+        cos_class_1 = cos_sim == 1
+        cos_class_2 = cos_sim == 2
+        cos_class_3 = cos_sim == 3
+        
+        cos_class_1 = cos_class_1.float()
+        cos_class_2 = cos_class_2.float()
+        cos_class_3 = cos_class_3.float()
+
+    return cos_class_1, cos_class_2,cos_class_3,mask_zvp,mask_hvp1,mask_hvp2
+
+
+def loss_vp1_labels(outputs, targets, indices, **kwargs):
+        
+    src_logits1 = outputs["pred_vp1_logits"]
+    src_logits2 = outputs["pred_vp2_logits"]
+    src_logits3 = outputs["pred_vp3_logits"]
+    src_logits = torch.cat([src_logits1.unsqueeze(1),src_logits2.unsqueeze(1),src_logits3.unsqueeze(1)],dim=1)
+
+    
+    class_zvp,class_hvp1,class_hvp2,mask_zvp,mask_hvp1,mask_hvp2 = line_label(outputs,targets)
+    class_vp = torch.cat([class_zvp.unsqueeze(1),class_hvp1.unsqueeze(1),class_hvp2.unsqueeze(1)],dim=1)
+    mask_vp = torch.cat([mask_zvp.unsqueeze(1),mask_hvp1.unsqueeze(1),mask_hvp2.unsqueeze(1)],dim=1)
+    
+    src_idx = _get_src_permutation_idx(indices)
+    tgt_idx = _get_tgt_permutation_idx(indices)
+    with torch.no_grad():
+
+        target_classes = class_vp[tgt_idx]
+
+        mask = mask_vp[tgt_idx]
+    
+    loss_ce = F.binary_cross_entropy_with_logits(
+        src_logits[src_idx], target_classes, reduction='none')
+    loss_ce = mask*loss_ce
+    loss_ce = loss_ce.sum(dim=1)/mask.sum(dim=1)
+    
+    return loss_ce.mean()
 
 
 def main(cfg):
@@ -337,6 +378,7 @@ def main(cfg):
     device = torch.device(cfg.DEVICE)
     
     model, _ = build_model(cfg)
+    matcher = build_matcher(cfg)
     model.to(device)
     
     dataset_test = build_matterport_dataset(image_set='test', cfg=cfg)
@@ -348,7 +390,7 @@ def main(cfg):
     
     output_dir = Path(cfg.OUTPUT_DIR)
     
-    checkpoint = torch.load('/home/kmuvcl/source/CTRL-C/z=-1_focal_length_normalize/checkpoint0099.pth', map_location='cpu')
+    checkpoint = torch.load('/home/kmuvcl/CTRL-C/transformer_encoder/checkpoint0051.pth', map_location='cpu')
     model.load_state_dict(checkpoint['model'])
     model = model.eval()
     
@@ -363,7 +405,8 @@ def main(cfg):
     intrinsics = torch.tensor([[517.97,0,0],
                 [0,517.97,0],
                 [0,0,1]])
-    
+    loss_vp = []
+    loss_vp1_label = []
     acc_zvp = []
     acc_hvp1 = []
     acc_hvp2 = []
@@ -434,58 +477,35 @@ def main(cfg):
             
             target_segs = targets[0]['segs'].numpy()
             target_lines = targets[0]['lines'].numpy()
-            target_mask = targets[0]['line_mask'].numpy()
+            # target_mask = targets[0]['line_mask'].numpy()
             # target_straight_seg = targets[0]['straight_segs'].numpy()
             num_segs = len(target_segs)
+            for key in outputs:
+                if isinstance(outputs[key], torch.Tensor):
+                    outputs[key] = outputs[key].cpu()
+
+            # targets = targets[0]
+            # for key in targets:
+            #     if isinstance(targets[key], torch.Tensor):
+            #         targets[key] = targets[key].cpu()
+                    
+
+            indices = matcher(outputs, targets)
+
+            loss_vp.append(loss_vp1(outputs,targets,indices).tolist())
+            loss_vp1_label.append(loss_vp1_labels(outputs,targets,indices).tolist())
 
             
-            segs = target_segs
+    idx = loss_vp.index(min(loss_vp))
+    print("min(loss_vp)",min(loss_vp))
+    loss_vp = sum(loss_vp)/len(loss_vp)
 
-            class_zvp,class_hvp1,class_hvp2,mask_zvp,mask_hvp1,mask_hvp2 = line_label(pred_v1weight,target_vp1,target_vp2,target_vp3,target_lines,target_mask)
-            class_zvp = class_zvp*mask_zvp * target_mask
-            class_hvp1 = class_hvp1*mask_hvp1 * target_mask
-            class_hvp2 = class_hvp2*mask_hvp2 * target_mask
-        
-            
-            line_mask_zvp = loss_vp_line(pred_v1weight,target_vp1,target_lines,target_mask)
-            line_mask_hvp1 = loss_vp_line(pred_v2weight,target_vp2,target_lines,target_mask)
-            line_mask_hvp2 = loss_vp_line(pred_v3weight,target_vp3,target_lines,target_mask)
+    idx = loss_vp1_label.index(min(loss_vp1_label))
+    print("min(loss_vp1_label)",min(loss_vp1_label))
+    loss_vp1_label = sum(loss_vp1_label)/len(loss_vp1_label)
 
-            # x1 = torch.dot(target_vp3,target_vp2)
-            # print("dot",x1)
-
-            acc_zvp.append(calculate_accuracy(class_zvp, pred_v1weight))
-            if calculate_accuracy(class_zvp, pred_v1weight) <10:
-                print(filename)
-                # print(class_zvp)
-                # print("_____________________")
-                # y_pred_binary = (pred_v1weight > 0.8).astype(np.float32)
-                # print(y_pred_binary)
-
-            acc11_hvp = calculate_accuracy(class_hvp1, pred_v2weight)
-            acc12_hvp = calculate_accuracy(class_hvp2, pred_v3weight)
-
-            acc21_hvp = calculate_accuracy(class_hvp1, pred_v3weight)
-            acc22_hvp = calculate_accuracy(class_hvp2, pred_v2weight)
-
-            if acc11_hvp >= acc21_hvp and acc12_hvp >= acc22_hvp:
-                acc_hvp1.append(acc11_hvp)
-                acc_hvp2.append(acc12_hvp)
-            else:
-                acc_hvp1.append(acc21_hvp)
-                acc_hvp2.append(acc22_hvp)
-
-    idx = acc_zvp.index(min(acc_zvp))
-    print("min(acc_zvp)",min(acc_zvp))
-    acc_zvp = sum(acc_zvp)/len(acc_zvp)
-
-    print("filename",filename2[idx])
-    acc_hvp1 = sum(acc_hvp1)/len(acc_hvp1)
-    acc_hvp2 = sum(acc_hvp2)/len(acc_hvp2)
-
-    print("acc_zvp",acc_zvp)
-    print("acc_hvp1",acc_hvp1)
-    print("acc_hvp2",acc_hvp2)
+    print("loss_vp",loss_vp)
+    print("loss_vp1_label",loss_vp1_label)
                 
   
 
