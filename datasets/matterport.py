@@ -248,17 +248,13 @@ class GSVDataset(Dataset):
         pp = (org_w / 2, org_h / 2)
         rho = 2.0 / np.minimum(org_w, org_h)
         
-        # read line and preprocess
         sublines = h5py_file['sublines'][0].float()
         num_segs = sublines.shape[0]
         org_segs = np.copy(sublines.reshape(num_segs,-1).numpy())
-        # num_segs = len(org_segs)
-        assert num_segs > 10, print(line_filename, num_segs)
 
         org_segs = coordinate_yup(org_segs,org_h,org_w)
         segs = normalize_segs(org_segs, pp=pp, rho=rho)
 
-        # sampled_segs, line_mask = sample_segs_np(segs, self.num_input_lines)
         sampled_lines = segs2lines_np(segs)
 
         non_sampled_lines = None
@@ -266,12 +262,6 @@ class GSVDataset(Dataset):
         vert_segs = sample_vert_segs_np(segs, thresh_theta=self.vert_line_angle)
         if len(vert_segs) < 2:
             vert_segs = segs
-
-        # sampled_vert_segs, vert_line_mask = sample_segs_np(
-        #     vert_segs, self.num_input_vert_lines
-        # )
-        # sampled_vert_lines = segs2lines_np(sampled_vert_segs)
-        
 
 
         gt_vp1 = np.array(self.list_vp1[idx])
