@@ -7,3 +7,5 @@ output*/
 *.so
 .vscode/
 wandb/
+before_vis/
+matterport_keyline/

@@ -167,6 +167,15 @@ def main(cfg):
             for loss_name in loss_names:
                 writer.add_scalar(f'train/{loss_name}', train_stats[loss_name], epoch)
                 writer.add_scalar(f'val/{loss_name}', val_stats[loss_name], epoch)
+            print("wandb_log!!_______________________________________")
+            wandb.log({
+                "train_loss":train_stats['loss'],
+                "train_vp_loss":train_stats['loss_vp1'],
+                "train_cl_loss":train_stats['loss_vp1_ce'],
+                "val_loss":val_stats['loss'],
+                "val_vp_loss":val_stats['loss_vp1'],
+                "val_cl_loss":val_stats['loss_vp1_ce']
+            })
             
     total_time = time.time() - start_time
     total_time_str = str(datetime.timedelta(seconds=int(total_time)))

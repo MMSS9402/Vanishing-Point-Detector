@@ -169,9 +169,9 @@ def load_h5py_to_dict(file_path):
             return {key: torch.tensor(f[key][:]) for key in f.keys()}
 
 
-class GSVDataset(Dataset):
-    def __init__(self, cfg, listpath, basepath, return_masks=False, transform=None):
-        self.listpath = listpath
+class ScanNetDataset(Dataset):
+    def __init__(self, cfg, rootdir, split):
+        self.split = split
         self.basepath = "/home/kmuvcl/source/oldCuTi/CuTi/matterport"
         self.input_width = cfg.DATASETS.INPUT_WIDTH
         self.input_height = cfg.DATASETS.INPUT_HEIGHT
