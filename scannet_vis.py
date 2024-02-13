@@ -23,7 +23,7 @@ import torch
 
 import datasets
 import util.misc as utils
-from datasets import build_matterport_dataset
+from datasets import build_matterport_dataset, build_scannet_dataset
 from models import build_model
 from config import cfg
 
@@ -315,6 +315,12 @@ def loss_vp_line(pred_v1weight,target_vp1,target_lines,target_mask):
 
     return mask.float() 
 
+def compute_error(vps_pd, vps_gt):
+    error = np.arccos(np.abs(vps_gt @ vps_pd.transpose()).clip(max=1))
+    # import pdb; pdb.set_trace()
+    error = error.min(axis=1) / np.pi * 180.0 # num_pd x num_gt, axis=1
+    return error.flatten()
+
 
 
 def main(cfg):
@@ -324,7 +330,7 @@ def main(cfg):
     model, _ = build_model(cfg)
     model.to(device)
     
-    dataset_test = build_matterport_dataset(image_set='test', cfg=cfg)
+    dataset_test = build_scannet_dataset(image_set='test', cfg=cfg)
     sampler_test = torch.utils.data.SequentialSampler(dataset_test)
     data_loader_test = DataLoader(dataset_test, 1, sampler=sampler_test,
                                  drop_last=False, 
@@ -333,7 +339,7 @@ def main(cfg):
     
     output_dir = Path(cfg.OUTPUT_DIR)
     
-    checkpoint = torch.load('/home/kmuvcl/CTRL-C/matterport_log/checkpoint0069.pth', map_location='cpu')
+    checkpoint = torch.load('/home/kmuvcl/CTRL-C/scannet100/checkpoint0036.pth', map_location='cpu')
     model.load_state_dict(checkpoint['model'])
     model = model.eval()
     
@@ -401,12 +407,12 @@ def main(cfg):
             
             
 
-            # if pred_vp1[2] < 0:
-            #     pred_vp1 = -pred_vp1
-            # if pred_vp2[2] < 0:
-            #     pred_vp2 = -pred_vp2
-            # if pred_vp3[2] < 0:
-            #     pred_vp3 = -pred_vp3 
+            if pred_vp1[2] < 0:
+                pred_vp1 = -pred_vp1
+            if pred_vp2[2] < 0:
+                pred_vp2 = -pred_vp2
+            if pred_vp3[2] < 0:
+                pred_vp3 = -pred_vp3 
             
             
             
@@ -439,7 +445,7 @@ def main(cfg):
             line_mask_zvp = loss_vp_line(pred_v1weight,target_vp1,target_lines,None)
             line_mask_hvp1 = loss_vp_line(pred_v2weight,target_vp2,target_lines,None)
             line_mask_hvp2 = loss_vp_line(pred_v3weight,target_vp3,target_lines,None)
-
+            focal_length = 2.408333333333333 * 256
             # x1 = torch.dot(target_vp3,target_vp2)
             # print("dot",x1)
 
@@ -453,70 +459,22 @@ def main(cfg):
 
                 num_layers = cfg.MODELS.TRANSFORMER.ENC_LAYERS
                 num_aux_outputs = num_layers - 1
+
+                plt.figure(figsize=(5,5))
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length])                                 
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
+                #plt.axis('off')
+                try:
+                    plt.savefig(osp.join(fig_output_dir, filename[37:]+'.jpg'),  
+                            pad_inches=0, bbox_inches='tight')
+                except FileNotFoundError:
+                    os.makedirs(osp.join(fig_output_dir, filename[37:49]),exist_ok=True)
+                plt.close('all')
                 
-                plt.figure(figsize=(4, 3))
-                plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])                                 
-                plt.xlim(-320/517.97,320/517.97)
-                plt.ylim(-240/517.97,240/517.97)
-                #plt.axis('off')
-                plt.savefig(osp.join(fig_output_dir, filename+'.jpg'),  
-                            pad_inches=0, bbox_inches='tight')
-                plt.close('all')
-                # draw zvp
-                # plt.figure(figsize=(4,3))
-                # plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])                 
-                # plt.plot((0, target_vp1[0]), (0, target_vp1[1]), 'r-', alpha=1.0)
-                # plt.plot((0, target_vp2[0]), (0, target_vp2[1]), 'g-', alpha=1.0)
-                # plt.plot((0, target_vp3[0]), (0, target_vp3[1]), 'b-', alpha=1.0)
-                # #plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'g-', alpha=1.0)  
-                # plt.xlim(-320/517.97,320/517.97)
-                # plt.ylim(-240/517.97,240/517.97)
-                # #plt.axis('off')
-                # plt.savefig(osp.join(fig_output_dir, filename+'_vp1_tgt.jpg'),  
-                #             pad_inches=0, bbox_inches='tight')
-                # plt.close('all')
 
-                # plt.figure(figsize=(4,3))
-                # plt.imshow(img, extent=[-320/240,320/240 , -1, 1])                 
-                # plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'r-', alpha=1.0)
-                # plt.plot((0, pred_vp2[0]), (0, pred_vp2[1]), 'g-', alpha=1.0)
-                # plt.plot((0, pred_vp3[0]), (0, pred_vp3[1]), 'b-', alpha=1.0)
-                # #plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'g-', alpha=1.0)  
-                # plt.xlim(-320/240, 320/240)
-                # plt.ylim(-1,1)
-                # #plt.axis('off')
-                # plt.savefig(osp.join(fig_output_dir, filename+'_vp1_src.jpg'),  
-                #             pad_inches=0, bbox_inches='tight')
-                # plt.close('all')
-
-                plt.figure(figsize=(4,3))
-                plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
-                plt.plot((0, target_vp1[0]), (0, target_vp1[1]), 'r-', alpha=1.0)
-                plt.plot((0, target_vp2[0]), (0, target_vp2[1]), 'g-', alpha=1.0)
-                plt.plot((0, target_vp3[0]), (0, target_vp3[1]), 'b-', alpha=1.0)                 
-                #plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'g-', alpha=1.0)  
-                plt.xlim(-320/517.97,320/517.97)
-                plt.ylim(-240/517.97,240/517.97)
-                #plt.axis('off')
-                plt.savefig(osp.join(fig_output_dir, filename+'_vp1_tgt.jpg'),  
-                            pad_inches=0, bbox_inches='tight')
-                plt.close('all')
-
-                plt.figure(figsize=(4,3))
-                plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])               
-                plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'r-', alpha=1.0)
-                plt.plot((0, pred_vp2[0]), (0, pred_vp2[1]), 'g-', alpha=1.0)
-                plt.plot((0, pred_vp3[0]), (0, pred_vp3[1]), 'b-', alpha=1.0)
-                #plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'g-', alpha=1.0)  
-                plt.xlim(-320/517.97,320/517.97)
-                plt.ylim(-240/517.97,240/517.97)
-                #plt.axis('off')
-                plt.savefig(osp.join(fig_output_dir, filename+'_vp1_src.jpg'),  
-                            pad_inches=0, bbox_inches='tight')
-                plt.close('all')
-
-                plt.figure(figsize=(4,3))
-                plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
+                plt.figure(figsize=(5,5))
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length]) 
                 plt.plot((0, target_vp1[0]), (0, target_vp1[1]), 'r-', alpha=1.0)
                 plt.plot((0, target_vp2[0]), (0, target_vp2[1]), 'r-', alpha=1.0)
                 plt.plot((0, target_vp3[0]), (0, target_vp3[1]), 'r-', alpha=1.0)                 
@@ -524,16 +482,16 @@ def main(cfg):
                 plt.plot((0, pred_vp2[0]), (0, pred_vp2[1]), 'g-', alpha=1.0)
                 plt.plot((0, pred_vp3[0]), (0, pred_vp3[1]), 'g-', alpha=1.0)
                 #plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'g-', alpha=1.0)  
-                plt.xlim(-320/517.97,320/517.97)
-                plt.ylim(-240/517.97,240/517.97)
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
                 #plt.axis('off')
-                plt.savefig(osp.join(fig_output_dir, filename+'_vp1_tgt_src.jpg'),  
+                plt.savefig(osp.join(fig_output_dir, filename[37:]+'_vp1_tgt_src.jpg'),  
                             pad_inches=0, bbox_inches='tight')
                 plt.close('all')
                
-                plt.figure(figsize=(4,3))
+                plt.figure(figsize=(5,5))
                 #                 plt.title('zenith vp lines')
-                plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length]) 
                 for i in range(num_segs):
                     plt.plot(
                         (segs[i, 0], segs[i, 2]),
@@ -541,64 +499,93 @@ def main(cfg):
                         c="r",
                         alpha=1.0,
                     )  
-                plt.xlim(-320/517.97,320/517.97)
-                plt.ylim(-240/517.97,240/517.97)
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
                 #plt.axis("off")
                 plt.savefig(
-                    osp.join(fig_output_dir, filename + "_lines_segment.jpg"),
+                    osp.join(fig_output_dir, filename[37:] + "_lines_segment.jpg"),
+                    pad_inches=0,
+                    bbox_inches="tight",
+                )
+
+                plt.figure(figsize=(5,5))
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length]) 
+                plt.plot((0, target_vp1[0]), (0, target_vp1[1]), 'r-', alpha=1.0)
+                plt.plot((0, target_vp2[0]), (0, target_vp2[1]), 'g-', alpha=1.0)
+                plt.plot((0, target_vp3[0]), (0, target_vp3[1]), 'b-', alpha=1.0)                 
+                # plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'g-', alpha=1.0)
+                # plt.plot((0, pred_vp2[0]), (0, pred_vp2[1]), 'g-', alpha=1.0)
+                # plt.plot((0, pred_vp3[0]), (0, pred_vp3[1]), 'g-', alpha=1.0)
+                #plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'g-', alpha=1.0)  
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
+                #plt.axis('off')
+                plt.savefig(osp.join(fig_output_dir, filename[37:]+'_vp1_tgt.jpg'),  
+                            pad_inches=0, bbox_inches='tight')
+                plt.close('all')
+               
+                plt.figure(figsize=(5,5))
+                #                 plt.title('zenith vp lines')
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length]) 
+                for i in range(num_segs):
+                    plt.plot(
+                        (segs[i, 0], segs[i, 2]),
+                        (segs[i, 1], segs[i, 3]),
+                        c="r",
+                        alpha=1.0,
+                    )  
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
+                #plt.axis("off")
+                plt.savefig(
+                    osp.join(fig_output_dir, filename[37:] + "_lines_segment.jpg"),
+                    pad_inches=0,
+                    bbox_inches="tight",
+                )
+
+                plt.figure(figsize=(5,5))
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length]) 
+                # plt.plot((0, target_vp1[0]), (0, target_vp1[1]), 'r-', alpha=1.0)
+                # plt.plot((0, target_vp2[0]), (0, target_vp2[1]), 'g-', alpha=1.0)
+                # plt.plot((0, target_vp3[0]), (0, target_vp3[1]), 'b-', alpha=1.0)                 
+                plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'r-', alpha=1.0)
+                plt.plot((0, pred_vp2[0]), (0, pred_vp2[1]), 'g-', alpha=1.0)
+                plt.plot((0, pred_vp3[0]), (0, pred_vp3[1]), 'b-', alpha=1.0)
+                #plt.plot((0, pred_vp1[0]), (0, pred_vp1[1]), 'g-', alpha=1.0)  
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
+                #plt.axis('off')
+                plt.savefig(osp.join(fig_output_dir, filename[37:]+'_vp1_src.jpg'),  
+                            pad_inches=0, bbox_inches='tight')
+                plt.close('all')
+               
+                plt.figure(figsize=(5,5))
+                #                 plt.title('zenith vp lines')
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length]) 
+                for i in range(num_segs):
+                    plt.plot(
+                        (segs[i, 0], segs[i, 2]),
+                        (segs[i, 1], segs[i, 3]),
+                        c="r",
+                        alpha=1.0,
+                    )  
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
+                #plt.axis("off")
+                plt.savefig(
+                    osp.join(fig_output_dir, filename[37:] + "_lines_segment.jpg"),
                     pad_inches=0,
                     bbox_inches="tight",
                 )
                 
-                
-                # plt.figure(figsize=(4,3))
-                # #                 plt.title('zenith vp lines')
-                # plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
-                # for i in range(num_segs):
-                #     seg = torch.tensor([segs[i,2]-segs[i,0],segs[i,3]-segs[i,1]])
-                #     # print(target_lines)
-                #     # print(seg.shape)
-                #     # print(torch.tensor(pred_vp1).shape)
-                #     cos_sim1 = F.cosine_similarity(seg, torch.tensor([target_vp1[0],target_vp1[1]]), dim=-1).abs()
-                #     cos_sim2 = F.cosine_similarity(seg, torch.tensor([target_vp2[0],target_vp2[1]]), dim=-1).abs()
-                #     cos_sim3 = F.cosine_similarity(seg, torch.tensor([target_vp3[0],target_vp3[1]]), dim=-1).abs()
-                #     if cos_sim1 > 0.999 and target_mask[i] == 1:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="r",
-                #             alpha=1.0,
-                #         )
-                #     if cos_sim2 > 0.999 and target_mask[i] == 1:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="g",
-                #             alpha=1.0,
-                #         )
-                #     if cos_sim3 > 0.999 and target_mask[i] == 1:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="b",
-                #             alpha=1.0,
-                #         )     
-                # plt.xlim(-320/517.97,320/517.97)
-                # plt.ylim(-240/517.97,240/517.97)
-                # #plt.axis("off")
-                # plt.savefig(
-                #     osp.join(fig_output_dir, filename + "_lines1_cos.jpg"),
-                #     pad_inches=0,
-                #     bbox_inches="tight",
-                # )
 
                 
                 v1w = pred_v1weight
                 v2w = pred_v2weight
                 v3w = pred_v3weight
-                plt.figure(figsize=(4,3))
+                plt.figure(figsize=(5,5))
                 #                 plt.title('zenith vp lines')
-                plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length]) 
                 for i in range(num_segs):
                     if v1w[i] > 0.8:
                         plt.plot(
@@ -623,19 +610,19 @@ def main(cfg):
                             c="b",
                             alpha=1.0   ,
                         )
-                plt.xlim(-320/517.97,320/517.97)
-                plt.ylim(-240/517.97,240/517.97)
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
                 #plt.axis("off")
                 plt.savefig(
-                    osp.join(fig_output_dir, filename + "pred_lines_class.jpg"),
+                    osp.join(fig_output_dir, filename[37:] + "pred_lines_class.jpg"),
                     pad_inches=0,
                     bbox_inches="tight",
                 )
                 plt.close("all")
 
-                plt.figure(figsize=(4,3))
+                plt.figure(figsize=(5,5))
                 #                 plt.title('zenith vp lines')
-                plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
+                plt.imshow(img, extent=[-256/focal_length, 256/focal_length, -256/focal_length, 256/focal_length])  
                 for i in range(num_segs):
                     if class_zvp[i] == 1 and class_hvp1[i] == 0 and class_hvp2[i] == 0:
                         plt.plot(
@@ -660,52 +647,17 @@ def main(cfg):
                             c="b",
                             alpha=1.0   ,
                         )
-                plt.xlim(-320/517.97,320/517.97)
-                plt.ylim(-240/517.97,240/517.97)
+                plt.xlim(-256/focal_length, 256/focal_length)
+                plt.ylim(-256/focal_length, 256/focal_length)
                 #plt.axis("off")
                 plt.savefig(
-                    osp.join(fig_output_dir, filename + "mask_class.jpg"),
+                    osp.join(fig_output_dir, filename[37:]+ "mask_class.jpg"),
                     pad_inches=0,
                     bbox_inches="tight",
                 )
                 plt.close("all")
-                
-                # plt.figure(figsize=(4,3))
-                # #                 plt.title('zenith vp lines')
-                # plt.imshow(img, extent=[-320/517.97,320/517.97, -240/517.97, 240/517.97])
-                # for i in range(num_segs):
-                #     if line_mask_zvp[i] == 1:# and line_mask_hvp1[i] == 0 and line_mask_hvp2[i] == 0:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="r",
-                #             alpha=1.0,
-                #         )
-                # for i in range(num_segs):
-                #     if line_mask_hvp1[i] == 1 :#and line_mask_zvp[i] == 0 and line_mask_hvp2[i] == 0:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="g",
-                #             alpha=1.0,
-                #         )   
-                # for i in range(num_segs):
-                #     if line_mask_hvp2[i] == 1 :#and line_mask_zvp[i] == 0 and line_mask_hvp1[i] == 0:
-                #         plt.plot(
-                #             (segs[i, 0], segs[i, 2]),
-                #             (segs[i, 1], segs[i, 3]),
-                #             c="b",
-                #             alpha=1.0   ,
-                #         )
-                # plt.xlim(-320/517.97,320/517.97)
-                # plt.ylim(-240/517.97,240/517.97)
-                # #plt.axis("off")
-                # plt.savefig(
-                #     osp.join(fig_output_dir, filename + "cross_line_mask_class.jpg"),
-                #     pad_inches=0,
-                #     bbox_inches="tight",
-                # )
-                # plt.close("all")
+
+
   
 
             

@@ -2,6 +2,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from torch import nn
+from einops import rearrange
 
 from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
                        accuracy, get_world_size, interpolate,
@@ -10,11 +11,11 @@ from util.misc import (NestedTensor, nested_tensor_from_tensor_list,
 from .backbone import build_backbone
 from .transformer import build_transformer
 from .matchers import build_matcher
-from .label_macher import build_label_matcher
+# from .label_macher import build_label_matcher
 
 
 class GPTran(nn.Module):
-    def __init__(self, backbone, transformer, num_queries, 
+    def __init__(self,transformer, num_queries, 
                  aux_loss=False, use_structure_tensor=True):
         """ Initializes the model.
         Parameters:
@@ -30,56 +31,75 @@ class GPTran(nn.Module):
         
         self.use_structure_tensor = use_structure_tensor
 
-        hidden_dim = transformer.d_model
+        hidden_dim = 256
         self.vp1_embed = nn.Linear(hidden_dim, 3)
         self.vp2_embed = nn.Linear(hidden_dim, 3)
         self.vp3_embed = nn.Linear(hidden_dim, 3)
+
         self.vp1_class_embed = nn.Linear(hidden_dim, 1)
         self.vp2_class_embed = nn.Linear(hidden_dim, 1)
         self.vp3_class_embed = nn.Linear(hidden_dim, 1)
         
-        self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)        
+        # self.input_proj = nn.Conv2d(backbone.num_channels, hidden_dim, kernel_size=1)        
         self.query_embed = nn.Embedding(num_queries, hidden_dim)
         #self.line_embed = nn.Embedding(512, hidden_dim)
         line_dim = 3
         if self.use_structure_tensor:
             line_dim = 6        
         self.input_line_proj = nn.Linear(line_dim, hidden_dim)        
-        self.backbone = backbone
+        # self.backbone = backbone
         self.aux_loss = aux_loss   
 
-    def forward(self, samples: NestedTensor, extra_samples):
+    def forward(self,  extra_samples):
 #     def forward(self, samples: NestedTensor):
         """ The forward expects a NestedTensor, which consists of:
            - samples.tensor: batched images, of shape [batch_size x 3 x H x W]
            - samples.mask: a binary mask of shape [batch_size x H x W], containing 1 on padded pixels            
         """
         extra_info = {}
+        # if isinstance(samples, (list, torch.Tensor)):
+        #     samples = nested_tensor_from_tensor_list(samples)
+        # features, pos = self.backbone(samples)
 
-        if isinstance(samples, (list, torch.Tensor)):
-            samples = nested_tensor_from_tensor_list(samples)
-        features, pos = self.backbone(samples)
-
-        src, mask = features[-1].decompose()
-        assert mask is not None
+        # src, mask = features[-1].decompose()
+        # assert mask is not None
         lines = extra_samples['lines']
         lmask = ~extra_samples['line_mask'].squeeze(2).bool()
-        
+        # desc = extra_samples['desc_sublines']
+
         # vlines [bs, n, 3]
         if self.use_structure_tensor:
             lines = self._to_structure_tensor(lines)
-                
-        hs, memory, enc_attn, dec_self_attn, dec_cross_attn = (
-            self.transformer(src=self.input_proj(src), mask=mask,
-                             query_embed=self.query_embed.weight,
-                             tgt=self.input_line_proj(lines), 
-                             tgt_key_padding_mask=lmask,
-                             pos_embed=pos[-1]))#,line_embed = self.line_embed.weight))
-        # ha [n_dec_layer, bs, num_query, ch]
-        extra_info['enc_attns'] = enc_attn
-        extra_info['dec_self_attns'] = dec_self_attn
-        extra_info['dec_cross_attns'] = dec_cross_attn
+        tgt = self.input_line_proj(lines)
 
+        bs = tgt.shape[0]
+        
+        # desc = rearrange(desc,'b l p c -> (b l) c p').contiguous()
+        # desc = F.max_pool1d(desc, kernel_size=21, stride=1)
+        # desc = rearrange(desc, '(b l) c p -> b l p c',l=250,b=bs).contiguous().squeeze(2)
+        
+        # tgt = tgt + desc
+        
+        query_embed=self.query_embed.weight
+        query_embed = query_embed.unsqueeze(1).repeat(1, bs, 1)
+        tgt = tgt.permute(1, 0, 2)
+        query_pos = torch.cat([query_embed, torch.zeros_like(tgt)], dim=0)
+        tgt = torch.cat([torch.zeros_like(query_embed), tgt], dim=0)
+        
+        hs, enc_attn = self.transformer(src=tgt, src_key_padding_mask=lmask, pos=query_pos)
+        # hs, memory, enc_attn, dec_self_attn, dec_cross_attn = (
+        #     self.transformer(src=self.input_proj(src), mask=None,
+        #                      query_embed=self.query_embed.weight,
+        #                      tgt=self.input_line_proj(lines), 
+        #                      tgt_key_padding_mask=None,
+        #                      pos_embed=pos[-1]))#,line_embed = self.line_embed.weight))
+        # ha [n_dec_layer, bs, num_query, ch]
+
+        hs = rearrange(hs,'l b h -> b l h').contiguous().unsqueeze(0)
+
+        extra_info['enc_attns'] = enc_attn
+        # extra_info['dec_self_attns'] = dec_self_attn
+        # extra_info['dec_cross_attns'] = dec_cross_attn
         outputs_vp1 = self.vp1_embed(hs[:,:,0,:]) # [n_dec_layer, bs, 3]
         outputs_vp1 = F.normalize(outputs_vp1, p=2, dim=-1)
 
@@ -134,19 +154,19 @@ class GPTran(nn.Module):
         return v[:, :, :, -1]
     
 class SetCriterion(nn.Module):
-    def __init__(self,label_matcher,matcher,weight_dict, losses, 
+    def __init__(self,matcher,weight_dict, losses, 
                        line_pos_angle, line_neg_angle):
         super().__init__()
         #self.matcher = matcher
         self.weight_dict = weight_dict        
         self.losses = losses
         self.matcher = matcher
-        self.label_matcher = label_matcher
+        # self.label_matcher = label_matcher
         self.thresh_line_pos = np.cos(np.radians(line_pos_angle), dtype=np.float32) # near 0.0
         self.thresh_line_neg = np.cos(np.radians(line_neg_angle), dtype=np.float32) # near 0.0
         
     
-    def loss_vp1(self, outputs, targets,indices,indices2, **kwargs):
+    def loss_vp1(self, outputs, targets,indices, **kwargs):
         #print(outputs.keys())
         assert 'pred_vp1' in outputs
         assert 'pred_vp2' in outputs
@@ -160,7 +180,7 @@ class SetCriterion(nn.Module):
         tgt_idx = self._get_tgt_permutation_idx(indices)
         cos_sim = F.cosine_similarity(pred_vp[src_idx], tgt_vp[tgt_idx], dim=-1).abs()    
         loss_vp1_cos = (1.0 - cos_sim).mean()
-                
+
         losses = {'loss_vp1': loss_vp1_cos}
         return losses
     
@@ -168,7 +188,7 @@ class SetCriterion(nn.Module):
     def line_label(self, outputs, targets):
         src_logits = outputs['pred_vp1_logits']
         target_lines = torch.stack([t['lines'] for t in targets], dim=0)
-        target_mask = torch.stack([t['line_mask'] for t in targets], dim=0)
+        # target_mask = torch.stack([t['line_mask'] for t in targets], dim=0)
         target_vp1 = torch.stack([t['vp1'] for t in targets], dim=0) # [bs, 3]
         target_vp2 = torch.stack([t['vp2'] for t in targets], dim=0) # [bs, 3]
         target_vp3 = torch.stack([t['vp3'] for t in targets], dim=0) # [bs, 3]
@@ -221,15 +241,15 @@ class SetCriterion(nn.Module):
 
         return cos_class_1, cos_class_2,cos_class_3,mask_zvp,mask_hvp1,mask_hvp2
     
-    def loss_vp1_labels(self, outputs, targets, indices, indices2, **kwargs):
+    def loss_vp1_labels(self, outputs, targets, indices, **kwargs):
         
         src_logits1 = outputs["pred_vp1_logits"]
         src_logits2 = outputs["pred_vp2_logits"]
         src_logits3 = outputs["pred_vp3_logits"]
         src_logits = torch.cat([src_logits1.unsqueeze(1),src_logits2.unsqueeze(1),src_logits3.unsqueeze(1)],dim=1)
 
-        target_mask = torch.stack([t["line_mask"] for t in targets], dim=0)
-        target_mask = target_mask.unsqueeze(1).repeat(1,3,1,1)
+        # target_mask = torch.stack([t["line_mask"] for t in targets], dim=0)
+        # target_mask = target_mask.unsqueeze(1).repeat(1,3,1,1)
         
         class_zvp,class_hvp1,class_hvp2,mask_zvp,mask_hvp1,mask_hvp2 = self.line_label(outputs,targets)
         class_vp = torch.cat([class_zvp.unsqueeze(1),class_hvp1.unsqueeze(1),class_hvp2.unsqueeze(1)],dim=1)
@@ -241,7 +261,7 @@ class SetCriterion(nn.Module):
 
             target_classes = class_vp[tgt_idx]
 
-            mask = target_mask[tgt_idx]*mask_vp[tgt_idx]
+            mask = mask_vp[tgt_idx]
         
         loss_ce = F.binary_cross_entropy_with_logits(
             src_logits[src_idx], target_classes, reduction='none')
@@ -253,10 +273,6 @@ class SetCriterion(nn.Module):
         }
         return losses
         
-    
-
-
-    
  
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -271,7 +287,7 @@ class SetCriterion(nn.Module):
         return batch_idx, tgt_idx
     
     
-    def get_loss(self, loss, outputs, targets,indices,indices2,**kwargs):
+    def get_loss(self, loss, outputs, targets,indices,**kwargs):
         loss_map = {            
             'vp1': self.loss_vp1,
             # 'vp2': self.loss_vp2,
@@ -281,7 +297,7 @@ class SetCriterion(nn.Module):
             # 'vp3_labels': self.loss_vp3_labels
         }
         assert loss in loss_map, f'do you really want to compute {loss} loss?'
-        return loss_map[loss](outputs, targets,indices,indices2, **kwargs)
+        return loss_map[loss](outputs, targets,indices, **kwargs)
 
     def forward(self, outputs, targets):
         """ This performs the loss computation.
@@ -293,12 +309,13 @@ class SetCriterion(nn.Module):
         outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
 
         indices = self.matcher(outputs_without_aux, targets)
-        indices2 = self.label_matcher(outputs_without_aux, targets)
+
+        # indices2 = self.label_matcher(outputs_without_aux, targets)
 
         # Compute all the requested losses
         losses = {}
         for loss in self.losses:
-            losses.update(self.get_loss(loss, outputs, targets,indices,indices2))
+            losses.update(self.get_loss(loss, outputs, targets,indices))
             # losses.update(self.get_loss(loss, outputs, targets,indices))
 
         # In case of auxiliary losses, we repeat this process with the output of each intermediate layer.
@@ -307,7 +324,7 @@ class SetCriterion(nn.Module):
                 indices = self.matcher(aux_outputs, targets)
                 for loss in self.losses:
                     kwargs = {}
-                    l_dict = self.get_loss(loss, aux_outputs, targets,indices,indices2, **kwargs)
+                    l_dict = self.get_loss(loss, aux_outputs, targets,indices, **kwargs)
                     # l_dict = self.get_loss(loss, aux_outputs, targets,indices, **kwargs)
                     l_dict = {k + f'_{i}': v for k, v in l_dict.items()}
                     losses.update(l_dict)
@@ -332,13 +349,13 @@ class MLP(nn.Module):
 def build(cfg, train=True):
     device = torch.device(cfg.DEVICE)
 
-    backbone = build_backbone(cfg)
+    # backbone = build_backbone(cfg)
     transformer = build_transformer(cfg)
     matcher = build_matcher(cfg)
-    label_matcher = build_label_matcher(cfg)
+    # label_matcher = build_label_matcher(cfg)
 
     model = GPTran(
-        backbone,
+        # backbone,
         transformer,        
         num_queries=cfg.MODELS.TRANSFORMER.NUM_QUERIES,
         aux_loss=cfg.LOSS.AUX_LOSS,
@@ -354,7 +371,7 @@ def build(cfg, train=True):
         weight_dict.update(aux_weight_dict)
 
     losses = cfg.LOSS.LOSSES    
-    criterion = SetCriterion(label_matcher=label_matcher,matcher=matcher,weight_dict=weight_dict,
+    criterion = SetCriterion(matcher=matcher,weight_dict=weight_dict,
                              losses=losses,
                              line_pos_angle=cfg.LOSS.LINE_POS_ANGLE,
                              line_neg_angle=cfg.LOSS.LINE_NEG_ANGLE)

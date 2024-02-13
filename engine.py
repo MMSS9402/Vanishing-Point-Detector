@@ -33,7 +33,7 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         extra_samples = to_device(extra_samples, device)
         targets = to_device(targets, device)
     
-        outputs, extra_info = model(samples, extra_samples)
+        outputs, extra_info = model(extra_samples)
         #print(outputs.keys())
         loss_dict = criterion(outputs, targets)
         weight_dict = criterion.weight_dict
@@ -81,7 +81,7 @@ def evaluate(model, criterion, data_loader, device, output_dir):
         extra_samples = to_device(extra_samples, device)
         targets = to_device(targets, device)
 
-        outputs, extra_info = model(samples, extra_samples)
+        outputs, extra_info = model(extra_samples)
         loss_dict = criterion(outputs, targets)
         weight_dict = criterion.weight_dict
 

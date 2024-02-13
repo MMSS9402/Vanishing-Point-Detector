@@ -1,5 +1,11 @@
 import os
 import os.path as osp
+import glob
+import random
+
+import skimage.io
+import skimage.transform
+from scipy import io
 
 import torch
 from torch.utils.data import Dataset
@@ -7,8 +13,10 @@ from torch.utils.data.dataloader import default_collate
 from torchvision.transforms import functional as F
 import torch.nn.functional as TF
 import torchvision.transforms as transforms
+
 import numpy as np
 import numpy.linalg as LA
+
 import cv2
 import json
 import csv
@@ -77,7 +85,7 @@ def coordinate_yup(segs,org_h,org_w):
 
 def normalize_segs(segs, pp, rho):
     pp = np.array([pp[0], pp[1], pp[0], pp[1]], dtype=np.float32)
-    return (segs - pp)/517.97
+    return (segs - pp)/rho
 
 def focal_length_normalize(segs):
     segs = segs/517.97
@@ -93,8 +101,8 @@ def normalize_safe_np(v, axis=-1, eps=1e-6):
 def segs2lines_np(segs):
     ones = np.ones(len(segs))
     ones = np.expand_dims(ones, axis=-1)
-    p1 = np.concatenate([segs[:, :2], -ones], axis=-1)
-    p2 = np.concatenate([segs[:, 2:], -ones], axis=-1)
+    p1 = np.concatenate([segs[:, :2], ones], axis=-1)
+    p2 = np.concatenate([segs[:, 2:], ones], axis=-1)
 
     lines = np.cross(p1, p2)
 
@@ -172,9 +180,9 @@ def load_h5py_to_dict(file_path):
 class GSVDataset(Dataset):
     def __init__(self, cfg, listpath, basepath, return_masks=False, transform=None):
         self.listpath = listpath
-        self.basepath = "/home/kmuvcl/source/oldCuTi/CuTi/matterport"
-        self.input_width = cfg.DATASETS.INPUT_WIDTH
-        self.input_height = cfg.DATASETS.INPUT_HEIGHT
+        self.basepath = basepath
+        # self.input_width = cfg.DATASETS.INPUT_WIDTH
+        # self.input_height = cfg.DATASETS.INPUT_HEIGHT
         self.min_line_length = cfg.DATASETS.MIN_LINE_LENGTH
         self.num_input_lines = cfg.DATASETS.NUM_INPUT_LINES
         self.num_input_vert_lines = cfg.DATASETS.NUM_INPUT_VERT_LINE
@@ -182,80 +190,124 @@ class GSVDataset(Dataset):
         self.return_vert_lines = cfg.DATASETS.RETURN_VERT_LINES
         self.return_masks = return_masks
         self.transform = transform
-        self.augcolor = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.ColorJitter(
-                    brightness=0.25, contrast=0.25, saturation=0.25, hue=0.4 / 3.14
-                ),
-                transforms.RandomGrayscale(p=0.1),
-            ]
-        )
-
-
-        self.list_filename = []
-        self.list_img_filename = []
-        self.list_line_filename = []
-        self.list_vp1 = []
-        self.list_vp2 = []
-        self.list_vp3 = []
-        # self.list_pitch = []
-        # self.list_roll = []
-        # self.list_focal = []
-        # self.list_hvps = []
-        basepath = "/home/kmuvcl/source/oldCuTi/CuTi/matterport/"
-        with open(self.listpath, "r") as csvfile:
-            csvreader = csv.reader(csvfile)
-            for row in csvreader:
-                # csv file 열면
-                # 이미지파일.jpg, 라인파일.csv,??, pitch, roll, focal,
-                img_filename = basepath + row[0]
-                line_filename = basepath + row[1]
-                self.list_filename.append(row[0])
-                self.list_img_filename.append(img_filename)
-                self.list_line_filename.append(line_filename)
-                self.list_vp1.append([np.float32(row[5]),np.float32(row[6]),np.float32(row[7])])
-                self.list_vp2.append([np.float32(row[2]),np.float32(row[3]),np.float32(row[4])])
-                self.list_vp3.append([np.float32(row[8]),np.float32(row[9]),np.float32(row[10])])
+        file_path = self.basepath+self.listpath
+        # dirs = np.genfromtxt(file_path, dtype=str)
+        filelist = glob.glob(f"{self.basepath}/*_0.png")
+        filelist.sort()
+        print("YUD_Dataset load")
+        print("total number of samples", len(filelist))
+        
+        if self.listpath == "train":
+            self.filelist = filelist[0:25]
+            self.size = len(self.filelist) * 4
+            print("subset for training: ", self.size)  
+        if self.listpath == "val":
+            self.filelist = filelist[25:102]
+            self.size = len(self.filelist)
+            print("subset for valid: ", self.size)
+        if self.listpath == "test":
+            self.filelist = filelist[25:102]
+            self.size = len(self.filelist)
+            print("subset for test: ", self.size)
+        if self.listpath == "all":
+            self.filelist = filelist
+            self.size = len(self.filelist)
+            print("all: ", len(self.filelist))
+        
+        camera_params = io.loadmat(os.path.join("/home/kmuvcl/dataset/data/processed_data/YorkUrbanDB", "cameraParameters.mat"))
+        f = camera_params['focal'][0, 0]
+        ps = camera_params['pixelSize'][0, 0]
+        pp = camera_params['pp'][0, :]
+        self.K = np.matrix([[f / ps, 0, pp[0]], [0, f / ps, pp[1]], [0, 0, 1]])
+        self.S = np.matrix([[2.0 / 640, 0, -1], [0, 2.0 / 640, -0.75], [0, 0, 1]])
+        invmat = np.linalg.inv(self.S * self.K)
+        self.invmat = np.array(invmat)
     
                 
     def __getitem__(self, idx):
         target = {}
         extra = {} 
-
-        filename = self.list_filename[idx]
-        # read image and preprocess
-        img_filename = self.list_img_filename[idx]
-        line_filename = self.list_line_filename[idx]
         
-        h5py_file = (load_h5py_to_dict(img_filename.replace(".png", "_sp_line.h5py",)))
-        
-        # desc_sublines = h5py_file['desc_sublines'][0].float()
+        if self.listpath == "train":
+            iname = self.filelist[idx // 4]
+            if idx % 4 == 0: iname = iname
+            if idx % 4 == 1: iname = iname.replace("_0", "_1")
+            if idx % 4 == 2: iname = iname.replace("_0", "_2")
+            if idx % 4 == 3: iname = iname.replace("_0", "_3")
+        else:
+            iname = self.filelist[idx]
 
-        image = cv2.imread(img_filename)
-        assert image is not None, print(img_filename)
-        # image = image[:, :, ::-1]  # convert to rgb
+        image = skimage.io.imread(iname)[:, :, 0:3]
+        image = np.rollaxis(image, 2).copy().astype(float)
+        
+        with np.load(iname.replace(".png",".npz"), allow_pickle=True) as npz:
+            vpts = npz["vpts"]
+            org_segs = npz['line_segments']
+            # vp_inds = npz['line_vp_inds']
+        
+        # elements , counts = np.unique(vp_inds,return_counts = True)
+        # sorted_indices = np.argsort(-counts)
+        # top_3_indices = elements[sorted_indices[:3]]
+        # vpts = vpts[top_3_indices]
+        # vpts = vpts[0:3]
+
+        in_vpts = self.K*vpts
+
+        num_vp = in_vpts.shape[1]
+        tvp_list = []
+        for vi in range(num_vp):
+            in_vpts[:, vi] /= in_vpts[2, vi]
+
+            tVP = np.array(in_vpts[:, vi])[:, 0]
+            tVP /= tVP[2]
+
+            tvp_list += [tVP]
+        
+        true_vps = np.vstack(tvp_list)
+        vp = true_vps
+
+        vp[:,0] /= vp[:,2]
+        vp[:,1] /= vp[:,2]
+        vp[:,2] /= vp[:,2]
+        vps_pixel = vp[:, 0:2]
+        vps_homo = np.concatenate((vps_pixel, np.ones((len(vps_pixel),1), dtype=np.float32)), axis=-1)
+        vps_homo[:, 0] -= 320
+        vps_homo[:, 1] -= 240
+        vps_homo[:, 1] *= -1
+        vps_homo[:, 0:2] /= 320.
+        vps_homo /= np.linalg.norm(vps_homo, axis=1, keepdims=True)
+
         org_image = image
-        org_h, org_w = image.shape[0], image.shape[1]
+        org_h, org_w = image.shape[1], image.shape[2]
         org_sz = np.array([org_h, org_w])
-        image = cv2.resize(image, dsize=(self.input_width, self.input_height))
-        input_sz = np.array([self.input_height, self.input_width])
-
-        # preprocess
-        ratio_x = float(self.input_width) / float(org_w)
-        ratio_y = float(self.input_height) / float(org_h)
+        # image = cv2.resize(image, dsize=(org_w, org_h))
+        input_sz = np.array([480, 640])
 
         pp = (org_w / 2, org_h / 2)
-        rho = 2.0 / np.minimum(org_w, org_h)
+        # print("pp",pp)
+        # print("vpts",vpts)
+        # rho = 2.0 / np.minimum(org_w, org_h)
+        focal_length = 1 #674.91797516
 
-        
-        keylines = h5py_file['klines'][0].float()
-        num_segs = keylines.shape[0]
+        num_segs = org_segs.shape[0]
+        # org_segs = keylines
+        # print(keylines.shape)
+        # print("num_segs",num_segs)
+        # try:
+        #     org_segs = np.copy(keylines.reshape(num_segs,-1).numpy())
+        # except RuntimeError:
+        #     print(iname)
+        #     print(num_segs)
+        #     import pdb; pdb.set_trace
+            
 
-        org_segs = np.copy(keylines.reshape(num_segs,-1).numpy())
-
-        org_segs = coordinate_yup(org_segs,org_h,org_w)
-        segs = normalize_segs(org_segs, pp=pp, rho=rho)
+        # org_segs = coordinate_yup(org_segs,org_h,org_w)
+        try:
+            s = normalize_segs(org_segs, pp=pp, rho=focal_length)
+        except RuntimeError:
+            print(num_segs)
+            print(iname)
+        segs = normalize_segs(org_segs, pp=pp, rho=focal_length)
 
 
         sampled_segs, line_mask = sample_segs_np(segs, self.num_input_lines)
@@ -271,9 +323,17 @@ class GSVDataset(Dataset):
         )
         sampled_vert_lines = segs2lines_np(sampled_vert_segs)
 
-        gt_vp1 = np.array(self.list_vp1[idx])
-        gt_vp2 = np.array(self.list_vp2[idx])
-        gt_vp3 = np.array(self.list_vp3[idx])
+        # gt_vp1 = vpts[0]
+        # gt_vp2 = vpts[1]
+        # gt_vp3 = vpts[2]
+
+        gt_vp1 = vps_homo[0]
+        gt_vp2 = vps_homo[1]
+        gt_vp3 = vps_homo[2]
+        
+        # gt_vp1 = gt_vp1/gt_vp1[2]
+        # gt_vp2 = gt_vp2/gt_vp2[2]
+        # gt_vp3 = gt_vp3/gt_vp3[2]
 
         gt_vp = np.array([gt_vp1,gt_vp2,gt_vp3])
         gt_vp = np.expand_dims(gt_vp,axis=0)
@@ -282,18 +342,12 @@ class GSVDataset(Dataset):
         gt_hvps[1, :] = gt_hvps[1, :]/gt_hvps[1,2]
         gt_horizon_lines1 = gt_hvps[0, :]
         gt_horizon_lines2 = gt_hvps[1, :]
+        
+        image = torch.tensor(image)
 
             
         if self.return_masks:
             masks = create_masks(image)
-
-        image = np.ascontiguousarray(image).astype(np.float32) #[h,w,c]
-        # image = torch.from_numpy(image).float()
-        # image = rearrange(image, "h w c -> c h w")
-        image = image[:,:,::-1]
-        image = self.augcolor(image / 255.0)
-
-        image = torch.randn(image.shape)
 
 
         target["vp1"] = (
@@ -367,8 +421,8 @@ class GSVDataset(Dataset):
         target["org_img"] = org_image
         target["org_sz"] = org_sz
         target["input_sz"] = input_sz
-        target["img_path"] = img_filename
-        target["filename"] = filename
+        target["img_path"] = iname
+        target["filename"] = iname
         target["num_segs"] = num_segs
         # target['desc_sublines'] = desc_sublines
 
@@ -379,7 +433,7 @@ class GSVDataset(Dataset):
         return image, extra, target
 
     def __len__(self):
-        return len(self.list_img_filename)
+        return self.size
 
 
 def make_transform():
@@ -388,13 +442,13 @@ def make_transform():
     )
 
 
-def build_matterport(image_set, cfg):
-    root = "/home/kmuvcl/source/CTRL-C/"
+def build_yud(image_set, cfg):
+    root = "/home/kmuvcl/dataset/data/processed_data/"
 
     PATHS = {
-        "train": "matterport_train_20230618.csv",
-        "val": "matterport_val_20230618.csv",
-        "test": "matterport_test_20230618.csv",
+        "train": "train",
+        "val": "val",
+        "test": "test",
     }
 
     img_folder = root

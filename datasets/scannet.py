@@ -1,5 +1,10 @@
 import os
 import os.path as osp
+import glob
+import random
+
+import skimage.io
+import skimage.transform
 
 import torch
 from torch.utils.data import Dataset
@@ -7,8 +12,10 @@ from torch.utils.data.dataloader import default_collate
 from torchvision.transforms import functional as F
 import torch.nn.functional as TF
 import torchvision.transforms as transforms
+
 import numpy as np
 import numpy.linalg as LA
+
 import cv2
 import json
 import csv
@@ -77,7 +84,7 @@ def coordinate_yup(segs,org_h,org_w):
 
 def normalize_segs(segs, pp, rho):
     pp = np.array([pp[0], pp[1], pp[0], pp[1]], dtype=np.float32)
-    return (segs - pp)/517.97
+    return (segs - pp)/rho
 
 def focal_length_normalize(segs):
     segs = segs/517.97
@@ -93,8 +100,8 @@ def normalize_safe_np(v, axis=-1, eps=1e-6):
 def segs2lines_np(segs):
     ones = np.ones(len(segs))
     ones = np.expand_dims(ones, axis=-1)
-    p1 = np.concatenate([segs[:, :2], -ones], axis=-1)
-    p2 = np.concatenate([segs[:, 2:], -ones], axis=-1)
+    p1 = np.concatenate([segs[:, :2], ones], axis=-1)
+    p2 = np.concatenate([segs[:, 2:], ones], axis=-1)
 
     lines = np.cross(p1, p2)
 
@@ -172,9 +179,9 @@ def load_h5py_to_dict(file_path):
 class GSVDataset(Dataset):
     def __init__(self, cfg, listpath, basepath, return_masks=False, transform=None):
         self.listpath = listpath
-        self.basepath = "/home/kmuvcl/source/oldCuTi/CuTi/matterport"
-        self.input_width = cfg.DATASETS.INPUT_WIDTH
-        self.input_height = cfg.DATASETS.INPUT_HEIGHT
+        self.basepath = basepath
+        # self.input_width = cfg.DATASETS.INPUT_WIDTH
+        # self.input_height = cfg.DATASETS.INPUT_HEIGHT
         self.min_line_length = cfg.DATASETS.MIN_LINE_LENGTH
         self.num_input_lines = cfg.DATASETS.NUM_INPUT_LINES
         self.num_input_vert_lines = cfg.DATASETS.NUM_INPUT_VERT_LINE
@@ -182,80 +189,72 @@ class GSVDataset(Dataset):
         self.return_vert_lines = cfg.DATASETS.RETURN_VERT_LINES
         self.return_masks = return_masks
         self.transform = transform
-        self.augcolor = transforms.Compose(
-            [
-                transforms.ToTensor(),
-                transforms.ColorJitter(
-                    brightness=0.25, contrast=0.25, saturation=0.25, hue=0.4 / 3.14
-                ),
-                transforms.RandomGrayscale(p=0.1),
-            ]
-        )
-
-
-        self.list_filename = []
-        self.list_img_filename = []
-        self.list_line_filename = []
-        self.list_vp1 = []
-        self.list_vp2 = []
-        self.list_vp3 = []
-        # self.list_pitch = []
-        # self.list_roll = []
-        # self.list_focal = []
-        # self.list_hvps = []
-        basepath = "/home/kmuvcl/source/oldCuTi/CuTi/matterport/"
-        with open(self.listpath, "r") as csvfile:
-            csvreader = csv.reader(csvfile)
-            for row in csvreader:
-                # csv file 열면
-                # 이미지파일.jpg, 라인파일.csv,??, pitch, roll, focal,
-                img_filename = basepath + row[0]
-                line_filename = basepath + row[1]
-                self.list_filename.append(row[0])
-                self.list_img_filename.append(img_filename)
-                self.list_line_filename.append(line_filename)
-                self.list_vp1.append([np.float32(row[5]),np.float32(row[6]),np.float32(row[7])])
-                self.list_vp2.append([np.float32(row[2]),np.float32(row[3]),np.float32(row[4])])
-                self.list_vp3.append([np.float32(row[8]),np.float32(row[9]),np.float32(row[10])])
+        file_path = self.basepath+self.listpath
+        dirs = np.genfromtxt(file_path, dtype=str)
+        filelist = sum([sorted(glob.glob(f"{self.basepath}{d}/*.png")) for d in dirs], [])
+        print("total number of samples", len(filelist))
+        
+        if self.listpath == "scannetv2_train.txt":
+            num_train = int(len(filelist) * 1.0)
+            self.filelist = filelist[0 : num_train]
+            self.size = len(self.filelist)    
+        if self.listpath == "scannetv2_val.txt":
+            random.seed(0)
+            random.shuffle(filelist)
+            self.filelist = filelist[:500]
+            self.size = len(self.filelist)
+        if self.listpath == "scannetv2_test.txt":
+            random.seed(0)
+            random.shuffle(filelist)
+            # self.filelist = filelist[:2000] # randomly sample 2k images for a quick test.
+            self.filelist = filelist # all test images (~20k).
+            self.size = len(self.filelist)
     
                 
     def __getitem__(self, idx):
         target = {}
         extra = {} 
-
-        filename = self.list_filename[idx]
-        # read image and preprocess
-        img_filename = self.list_img_filename[idx]
-        line_filename = self.list_line_filename[idx]
         
-        h5py_file = (load_h5py_to_dict(img_filename.replace(".png", "_sp_line.h5py",)))
+        iname = self.filelist[idx % len(self.filelist)]
+        image = skimage.io.imread(iname)[:, :, 0:3]
         
-        # desc_sublines = h5py_file['desc_sublines'][0].float()
+        with np.load(iname.replace("color.png", "vanish.npz")) as npz:
+            vpts = np.array([npz[d] for d in ["x", "y", "z"]])
+        
+        vpts[:, 1] *= -1
+        vpts /= LA.norm(vpts, axis=1, keepdims=True)
+        
+        h5py_file = (load_h5py_to_dict(iname.replace(".png", "_line.h5py",)))
 
-        image = cv2.imread(img_filename)
-        assert image is not None, print(img_filename)
-        # image = image[:, :, ::-1]  # convert to rgb
         org_image = image
         org_h, org_w = image.shape[0], image.shape[1]
         org_sz = np.array([org_h, org_w])
-        image = cv2.resize(image, dsize=(self.input_width, self.input_height))
-        input_sz = np.array([self.input_height, self.input_width])
-
-        # preprocess
-        ratio_x = float(self.input_width) / float(org_w)
-        ratio_y = float(self.input_height) / float(org_h)
+        # image = cv2.resize(image, dsize=(org_w, org_h))
+        input_sz = np.array([512, 512])
 
         pp = (org_w / 2, org_h / 2)
         rho = 2.0 / np.minimum(org_w, org_h)
+        focal_length =2.408333333333333 * 256
 
         
-        keylines = h5py_file['klines'][0].float()
+        keylines = h5py_file['klines'].float()
         num_segs = keylines.shape[0]
 
-        org_segs = np.copy(keylines.reshape(num_segs,-1).numpy())
-
+        try:
+            org_segs = np.copy(keylines.reshape(num_segs,-1).numpy())
+        except RuntimeError:
+            print(iname)
+            print(num_segs)
+            import pdb; pdb.set_trace
+            
         org_segs = coordinate_yup(org_segs,org_h,org_w)
-        segs = normalize_segs(org_segs, pp=pp, rho=rho)
+        # org_segs = coordinate_yup(org_segs,org_h,org_w)
+        try:
+            s = normalize_segs(org_segs, pp=pp, rho=focal_length)
+        except RuntimeError:
+            print(num_segs)
+            print(iname)
+        segs = normalize_segs(org_segs, pp=pp, rho=focal_length)
 
 
         sampled_segs, line_mask = sample_segs_np(segs, self.num_input_lines)
@@ -271,9 +270,9 @@ class GSVDataset(Dataset):
         )
         sampled_vert_lines = segs2lines_np(sampled_vert_segs)
 
-        gt_vp1 = np.array(self.list_vp1[idx])
-        gt_vp2 = np.array(self.list_vp2[idx])
-        gt_vp3 = np.array(self.list_vp3[idx])
+        gt_vp1 = vpts[0]
+        gt_vp2 = vpts[1]
+        gt_vp3 = vpts[2]
 
         gt_vp = np.array([gt_vp1,gt_vp2,gt_vp3])
         gt_vp = np.expand_dims(gt_vp,axis=0)
@@ -282,18 +281,12 @@ class GSVDataset(Dataset):
         gt_hvps[1, :] = gt_hvps[1, :]/gt_hvps[1,2]
         gt_horizon_lines1 = gt_hvps[0, :]
         gt_horizon_lines2 = gt_hvps[1, :]
+        
+        image = torch.tensor(image)
 
             
         if self.return_masks:
             masks = create_masks(image)
-
-        image = np.ascontiguousarray(image).astype(np.float32) #[h,w,c]
-        # image = torch.from_numpy(image).float()
-        # image = rearrange(image, "h w c -> c h w")
-        image = image[:,:,::-1]
-        image = self.augcolor(image / 255.0)
-
-        image = torch.randn(image.shape)
 
 
         target["vp1"] = (
@@ -367,8 +360,8 @@ class GSVDataset(Dataset):
         target["org_img"] = org_image
         target["org_sz"] = org_sz
         target["input_sz"] = input_sz
-        target["img_path"] = img_filename
-        target["filename"] = filename
+        target["img_path"] = iname
+        target["filename"] = iname
         target["num_segs"] = num_segs
         # target['desc_sublines'] = desc_sublines
 
@@ -379,7 +372,7 @@ class GSVDataset(Dataset):
         return image, extra, target
 
     def __len__(self):
-        return len(self.list_img_filename)
+        return self.size
 
 
 def make_transform():
@@ -388,13 +381,13 @@ def make_transform():
     )
 
 
-def build_matterport(image_set, cfg):
-    root = "/home/kmuvcl/source/CTRL-C/"
+def build_scannet(image_set, cfg):
+    root = "/home/kmuvcl/dataset/data/scannet-vp/"
 
     PATHS = {
-        "train": "matterport_train_20230618.csv",
-        "val": "matterport_val_20230618.csv",
-        "test": "matterport_test_20230618.csv",
+        "train": "scannetv2_train.txt",
+        "val": "scannetv2_val.txt",
+        "test": "scannetv2_test.txt",
     }
 
     img_folder = root
