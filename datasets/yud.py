@@ -5,6 +5,7 @@ import random
 
 import skimage.io
 import skimage.transform
+from scipy import io
 
 import torch
 from torch.utils.data import Dataset
@@ -190,64 +191,116 @@ class GSVDataset(Dataset):
         self.return_masks = return_masks
         self.transform = transform
         file_path = self.basepath+self.listpath
-        dirs = np.genfromtxt(file_path, dtype=str)
-        filelist = sum([sorted(glob.glob(f"{self.basepath}{d}/*.png")) for d in dirs], [])
+        # dirs = np.genfromtxt(file_path, dtype=str)
+        filelist = glob.glob(f"{self.basepath}/*_0.png")
+        filelist.sort()
+        print("YUD_Dataset load")
         print("total number of samples", len(filelist))
         
-        if self.listpath == "scannetv2_train.txt":
-            num_train = int(len(filelist) * 1.0)
-            self.filelist = filelist[0 : num_train]
-            self.size = len(self.filelist)    
-        if self.listpath == "scannetv2_val.txt":
-            random.seed(0)
-            random.shuffle(filelist)
-            self.filelist = filelist[:500]
+        if self.listpath == "train":
+            self.filelist = filelist[0:25]
+            self.size = len(self.filelist) * 4
+            print("subset for training: ", self.size)  
+        if self.listpath == "val":
+            self.filelist = filelist[25:102]
             self.size = len(self.filelist)
-        if self.listpath == "scannetv2_test.txt":
-            random.seed(0)
-            random.shuffle(filelist)
-            # self.filelist = filelist[:2000] # randomly sample 2k images for a quick test.
-            self.filelist = filelist # all test images (~20k).
+            print("subset for valid: ", self.size)
+        if self.listpath == "test":
+            self.filelist = filelist[25:102]
             self.size = len(self.filelist)
+            print("subset for test: ", self.size)
+        if self.listpath == "all":
+            self.filelist = filelist
+            self.size = len(self.filelist)
+            print("all: ", len(self.filelist))
+        
+        camera_params = io.loadmat(os.path.join("/home/kmuvcl/dataset/data/processed_data/YorkUrbanDB", "cameraParameters.mat"))
+        f = camera_params['focal'][0, 0]
+        ps = camera_params['pixelSize'][0, 0]
+        pp = camera_params['pp'][0, :]
+        self.K = np.matrix([[f / ps, 0, pp[0]], [0, f / ps, pp[1]], [0, 0, 1]])
+        self.S = np.matrix([[2.0 / 640, 0, -1], [0, 2.0 / 640, -0.75], [0, 0, 1]])
+        invmat = np.linalg.inv(self.S * self.K)
+        self.invmat = np.array(invmat)
     
                 
     def __getitem__(self, idx):
         target = {}
         extra = {} 
         
-        iname = self.filelist[idx % len(self.filelist)]
+        if self.listpath == "train":
+            iname = self.filelist[idx // 4]
+            if idx % 4 == 0: iname = iname
+            if idx % 4 == 1: iname = iname.replace("_0", "_1")
+            if idx % 4 == 2: iname = iname.replace("_0", "_2")
+            if idx % 4 == 3: iname = iname.replace("_0", "_3")
+        else:
+            iname = self.filelist[idx]
+
         image = skimage.io.imread(iname)[:, :, 0:3]
+        image = np.rollaxis(image, 2).copy().astype(float)
         
-        with np.load(iname.replace("color.png", "vanish.npz")) as npz:
-            vpts = np.array([npz[d] for d in ["x", "y", "z"]])
+        with np.load(iname.replace(".png",".npz"), allow_pickle=True) as npz:
+            vpts = npz["vpts"]
+            org_segs = npz['line_segments']
+            # vp_inds = npz['line_vp_inds']
         
-        vpts[:, 1] *= -1
-        vpts /= LA.norm(vpts, axis=1, keepdims=True)
+        # elements , counts = np.unique(vp_inds,return_counts = True)
+        # sorted_indices = np.argsort(-counts)
+        # top_3_indices = elements[sorted_indices[:3]]
+        # vpts = vpts[top_3_indices]
+        # vpts = vpts[0:3]
+
+        in_vpts = self.K*vpts
+
+        num_vp = in_vpts.shape[1]
+        tvp_list = []
+        for vi in range(num_vp):
+            in_vpts[:, vi] /= in_vpts[2, vi]
+
+            tVP = np.array(in_vpts[:, vi])[:, 0]
+            tVP /= tVP[2]
+
+            tvp_list += [tVP]
         
-        h5py_file = (load_h5py_to_dict(iname.replace(".png", "_line.h5py",)))
+        true_vps = np.vstack(tvp_list)
+        vp = true_vps
+
+        vp[:,0] /= vp[:,2]
+        vp[:,1] /= vp[:,2]
+        vp[:,2] /= vp[:,2]
+        vps_pixel = vp[:, 0:2]
+        vps_homo = np.concatenate((vps_pixel, np.ones((len(vps_pixel),1), dtype=np.float32)), axis=-1)
+        vps_homo[:, 0] -= 320
+        vps_homo[:, 1] -= 240
+        vps_homo[:, 1] *= -1
+        vps_homo[:, 0:2] /= 320.
+        vps_homo /= np.linalg.norm(vps_homo, axis=1, keepdims=True)
 
         org_image = image
-        org_h, org_w = image.shape[0], image.shape[1]
+        org_h, org_w = image.shape[1], image.shape[2]
         org_sz = np.array([org_h, org_w])
         # image = cv2.resize(image, dsize=(org_w, org_h))
-        input_sz = np.array([512, 512])
+        input_sz = np.array([480, 640])
 
         pp = (org_w / 2, org_h / 2)
-        rho = 2.0 / np.minimum(org_w, org_h)
-        focal_length =2.408333333333333 * 256
+        # print("pp",pp)
+        # print("vpts",vpts)
+        # rho = 2.0 / np.minimum(org_w, org_h)
+        focal_length = 1 #674.91797516
 
-        
-        keylines = h5py_file['klines'].float()
-        num_segs = keylines.shape[0]
-
-        try:
-            org_segs = np.copy(keylines.reshape(num_segs,-1).numpy())
-        except RuntimeError:
-            print(iname)
-            print(num_segs)
-            import pdb; pdb.set_trace
+        num_segs = org_segs.shape[0]
+        # org_segs = keylines
+        # print(keylines.shape)
+        # print("num_segs",num_segs)
+        # try:
+        #     org_segs = np.copy(keylines.reshape(num_segs,-1).numpy())
+        # except RuntimeError:
+        #     print(iname)
+        #     print(num_segs)
+        #     import pdb; pdb.set_trace
             
-        org_segs = coordinate_yup(org_segs,org_h,org_w)
+
         # org_segs = coordinate_yup(org_segs,org_h,org_w)
         try:
             s = normalize_segs(org_segs, pp=pp, rho=focal_length)
@@ -270,9 +323,17 @@ class GSVDataset(Dataset):
         )
         sampled_vert_lines = segs2lines_np(sampled_vert_segs)
 
-        gt_vp1 = vpts[0]
-        gt_vp2 = vpts[1]
-        gt_vp3 = vpts[2]
+        # gt_vp1 = vpts[0]
+        # gt_vp2 = vpts[1]
+        # gt_vp3 = vpts[2]
+
+        gt_vp1 = vps_homo[0]
+        gt_vp2 = vps_homo[1]
+        gt_vp3 = vps_homo[2]
+        
+        # gt_vp1 = gt_vp1/gt_vp1[2]
+        # gt_vp2 = gt_vp2/gt_vp2[2]
+        # gt_vp3 = gt_vp3/gt_vp3[2]
 
         gt_vp = np.array([gt_vp1,gt_vp2,gt_vp3])
         gt_vp = np.expand_dims(gt_vp,axis=0)
@@ -381,13 +442,13 @@ def make_transform():
     )
 
 
-def build_scannet(image_set, cfg):
-    root = "/home/kmuvcl/dataset/data/scannet-vp/"
+def build_yud(image_set, cfg):
+    root = "/home/kmuvcl/dataset/data/processed_data/"
 
     PATHS = {
-        "train": "scannetv2_train.txt",
-        "val": "scannetv2_val.txt",
-        "test": "scannetv2_test.txt",
+        "train": "train",
+        "val": "val",
+        "test": "test",
     }
 
     img_folder = root

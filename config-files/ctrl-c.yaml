@@ -5,8 +5,8 @@ MODELS:
   USE_STRUCTURE_TENSOR: True
   
   TRANSFORMER:
-    ENC_LAYERS: 5
-    DEC_LAYERS: 6
+    ENC_LAYERS: 4
+    DEC_LAYERS: 5
     DIM_FEEDFORWARD: 2048
     HIDDEN_DIM: 256
     DROPOUT: 0.1
@@ -21,10 +21,10 @@ LOSS:
   LINE_NEG_ANGLE: 85.0
   
   WEIGHTS:
-    loss_vp1: 1.0 
+    loss_vp1: 100.0 
     # loss_vp2: 1.0 
     # loss_vp3: 1.0 
-    loss_vp1_ce: 1.0
+    loss_vp1_ce: 10.0
     # loss_vp2_ce: 1.0
     # loss_vp3_ce: 1.0 
     
@@ -39,9 +39,9 @@ DATASETS:
 SOLVER:
   LR: 0.0001
   LR_BACKBONE: 0.0001
-  BATCH_SIZE: 18
+  BATCH_SIZE: 50
   WEIGHT_DECAY: 0.0001
-  EPOCHS: 100
+  EPOCHS: 200
   LR_DROP: 20
   CLIP_MAX_NORM: 0.1
   

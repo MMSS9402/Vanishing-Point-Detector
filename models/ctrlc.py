@@ -35,6 +35,7 @@ class GPTran(nn.Module):
         self.vp1_embed = nn.Linear(hidden_dim, 3)
         self.vp2_embed = nn.Linear(hidden_dim, 3)
         self.vp3_embed = nn.Linear(hidden_dim, 3)
+
         self.vp1_class_embed = nn.Linear(hidden_dim, 1)
         self.vp2_class_embed = nn.Linear(hidden_dim, 1)
         self.vp3_class_embed = nn.Linear(hidden_dim, 1)
@@ -179,7 +180,7 @@ class SetCriterion(nn.Module):
         tgt_idx = self._get_tgt_permutation_idx(indices)
         cos_sim = F.cosine_similarity(pred_vp[src_idx], tgt_vp[tgt_idx], dim=-1).abs()    
         loss_vp1_cos = (1.0 - cos_sim).mean()
-                
+
         losses = {'loss_vp1': loss_vp1_cos}
         return losses
     
@@ -272,10 +273,6 @@ class SetCriterion(nn.Module):
         }
         return losses
         
-    
-
-
-    
  
     def _get_src_permutation_idx(self, indices):
         # permute predictions following indices
@@ -312,6 +309,7 @@ class SetCriterion(nn.Module):
         outputs_without_aux = {k: v for k, v in outputs.items() if k != 'aux_outputs'}
 
         indices = self.matcher(outputs_without_aux, targets)
+
         # indices2 = self.label_matcher(outputs_without_aux, targets)
 
         # Compute all the requested losses

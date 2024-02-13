@@ -9,3 +9,5 @@ output*/
 wandb/
 before_vis/
 matterport_keyline/
+*.txt
+*.jpg

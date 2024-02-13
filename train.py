@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 import datasets
 import util.misc as utils
-from datasets import build_matterport_dataset,build_gsv_dataset
+from datasets import build_matterport_dataset,build_gsv_dataset,build_scannet_dataset,build_su3_dataset,build_yud_dataset
 from engine import evaluate, train_one_epoch
 from models import build_model
 from config import cfg
@@ -25,7 +25,7 @@ def get_args_parser():
                         help="path to config file",
                         type=str,
                         default='/home/kmuvcl/CTRL-C/config-files/ctrl-c.yaml')
-    parser.add_argument('--dataset', default='matterport')
+    parser.add_argument('--dataset', default='scannet')
     parser.add_argument("--opts",
                         help="Modify config options using the command-line",
                         default=None,
@@ -75,10 +75,16 @@ def main(cfg):
                                   weight_decay=cfg.SOLVER.WEIGHT_DECAY)
     lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer, cfg.SOLVER.LR_DROP)
     
-    if args.dataset == 'matterport':
-        build_dataset = build_matterport_dataset
-    elif args.dataset == 'GoogleStreetView':
-        build_dataset = build_gsv_dataset
+    # if args.dataset == 'matterport':
+    #     build_dataset = build_matterport_dataset
+    if args.dataset == "scannet":
+        build_dataset = build_scannet_dataset
+    # if args.dataset == "su3":
+    #     build_dataset = build_su3_dataset
+    # if args.dataset == "yud":
+    #     build_dataset = build_yud_dataset
+    # elif args.dataset == 'GoogleStreetView':
+    #     build_dataset = build_gsv_dataset
     else:
         print('Unrecognized dataset: {}'.format(args.dataset))
         exit()
@@ -99,8 +105,7 @@ def main(cfg):
     data_loader_train = DataLoader(dataset_train, 
                                    batch_sampler=batch_sampler_train,
                                    collate_fn=utils.collate_fn, 
-                                   num_workers=cfg.NUM_WORKERS,
-                                   shuffle=False)
+                                   num_workers=cfg.NUM_WORKERS)
     data_loader_val = DataLoader(dataset_val, 
                                  cfg.SOLVER.BATCH_SIZE, 
                                  sampler=sampler_val,
@@ -171,10 +176,10 @@ def main(cfg):
             wandb.log({
                 "train_loss":train_stats['loss'],
                 "train_vp_loss":train_stats['loss_vp1'],
-                "train_cl_loss":train_stats['loss_vp1_ce'],
+                # "train_cl_loss":train_stats['loss_vp1_ce'],
                 "val_loss":val_stats['loss'],
                 "val_vp_loss":val_stats['loss_vp1'],
-                "val_cl_loss":val_stats['loss_vp1_ce']
+                # "val_cl_loss":val_stats['loss_vp1_ce']
             })
             
     total_time = time.time() - start_time
