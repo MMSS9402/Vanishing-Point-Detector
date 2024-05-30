@@ -17,8 +17,8 @@ ScanNet dataset Download [Link.](https://github.com/zhou13/neurvps?tab=readme-ov
 
 ## Data Preprocessing
 ```shell
-cd scripts/data_preprocessing
-python LSD2.py
+cd scripts/
+python scannet_LSD.py
 ```
 
 ## train script
