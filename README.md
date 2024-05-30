@@ -12,7 +12,7 @@ pip install -r requirements.txt
 ```
 
 ## Dataset
-MatterPort3D dataset Download [Jin et al.](https://github.com/jinlinyi/SparsePlanes/blob/main/docs/data.md)
+ScanNet dataset Download [Link.](https://github.com/zhou13/neurvps?tab=readme-ov-file)
 
 ## Data Preprocessing
 ```shell
