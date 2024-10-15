@@ -1,4 +1,4 @@
-# Vanishing Point Detector
+# Vanishing Point Detector
 
 - This deep learning model is designed to detect vanishing points in images based on the Manhattan assumption.
 - We have designed an architecture optimized for vanishing point detection by employing a transformer model, learned queries, and a loss function designed using bipartite matching.
